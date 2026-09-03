@@ -1,5 +1,7 @@
 # Copilot Cost Counter
 
+**Version:** 0.1.17
+
 A standalone VS Code companion extension that records completed GitHub Copilot requests from a Copilot output log and writes workspace-local usage summaries.
 
 > **Disclaimer:** This project was vibe coded and is provided as-is for experimentation. Use it entirely at your own risk. It is not affiliated with or endorsed by GitHub or Microsoft.
