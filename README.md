@@ -1,6 +1,6 @@
 # Copilot Cost Counter
 
-**Version:** 0.1.17
+**Version:** 0.1.22
 
 A standalone VS Code companion extension that records completed GitHub Copilot requests from a Copilot output log and writes workspace-local usage summaries.
 
@@ -23,7 +23,7 @@ Restart or reload VS Code after installation. The generated `.vsix` file can als
 
 ## Configure The Log
 
-The extension automatically searches the current VS Code window’s extension-host log directory for the most recently updated `GitHub Copilot Chat.log`. This keeps automatic collection associated with the workspace currently open in that window; no log path input is required. Copilot’s logs are commonly outside the workspace, so configure an explicit path only when automatic discovery does not find the right session:
+The `copilotCostCounter.logPath` setting is intentionally empty by default. An empty value is the recommended mode: the extension automatically searches the current VS Code window’s extension-host log directory for the most recently updated `GitHub Copilot Chat.log`. The discovered path is used at runtime and is not written into the setting. Copilot’s logs are commonly outside the workspace, so configure an explicit path only when automatic discovery does not find the right session:
 
 1. Run `Copilot Cost Counter: Choose Output Log` and select the log file.
 2. Set `copilotCostCounter.logPath` in workspace settings. Relative paths are resolved from the first workspace folder; absolute paths are accepted.
@@ -98,6 +98,17 @@ The Settings editor exposes the override object as a custom-model map. Add a mod
 ## Display Currency
 
 Set `copilotCostCounter.currency` to `USD`, `EUR`, `GBP`, `SEK`, `NOK`, or `DKK`. Because pricing sources are USD-based, set `copilotCostCounter.currencyConversionRate` to the number of display-currency units per USD. Stored JSONL costs remain in USD; the report and money-burn animation use the selected display currency.
+
+## Money-Burn Animation
+
+Enable `copilotCostCounter.showMoneyBurn` to display the estimated spend after a request. The animation can be customized with:
+
+- `copilotCostCounter.moneyBurnDurationMs` for the duration in milliseconds
+- `copilotCostCounter.moneyBurnSizePx` for the amount's font size in pixels
+- `copilotCostCounter.moneyBurnOrigin` for `top-left`, `top-right`, `bottom-left`, or `bottom-right`
+- `copilotCostCounter.moneyBurnThresholdUsd` for the cumulative USD threshold before it fires
+
+The threshold defaults to `0`, which shows an animation for every estimated request. With a positive threshold, estimated costs accumulate and the animation fires each time a threshold block is crossed. Any remainder carries into the next request. For example, a `$0.70` request with a `$0.50` threshold displays `$0.50` and carries `$0.20` forward. Sub-cent amounts use additional decimal places when shown in the animation.
 
 ## Development
 

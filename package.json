@@ -2,7 +2,7 @@
   "name": "copilot-cost-counter",
   "displayName": "Copilot Cost Counter",
   "description": "Record Copilot request usage and cost summaries from its output log.",
-  "version": "0.1.17",
+  "version": "0.1.22",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -79,7 +79,7 @@
         "copilotCostCounter.logPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the GitHub Copilot output log. Leave empty to discover the active VS Code window's Copilot Chat logs automatically."
+          "markdownDescription": "Optional path override for the GitHub Copilot output log. Leave empty (recommended) to discover the active VS Code window's Copilot Chat logs automatically; the discovered path is not stored in this setting."
         },
         "copilotCostCounter.pollIntervalMs": {
           "type": "number",
@@ -91,6 +91,37 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Show a brief money-burn animation after a request with an estimated cost is recorded."
+        },
+        "copilotCostCounter.moneyBurnThresholdUsd": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "Accumulate estimated spend and show the money-burn animation each time this USD threshold is crossed. Set to 0 to show it for every estimated request."
+        },
+        "copilotCostCounter.moneyBurnDurationMs": {
+          "type": "number",
+          "default": 900,
+          "minimum": 100,
+          "maximum": 10000,
+          "markdownDescription": "Duration of the money-burn animation in milliseconds."
+        },
+        "copilotCostCounter.moneyBurnSizePx": {
+          "type": "number",
+          "default": 18,
+          "minimum": 8,
+          "maximum": 72,
+          "markdownDescription": "Font size of the money-burn amount in pixels."
+        },
+        "copilotCostCounter.moneyBurnOrigin": {
+          "type": "string",
+          "enum": [
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right"
+          ],
+          "default": "bottom-right",
+          "markdownDescription": "Screen corner where the money-burn animation starts."
         },
         "copilotCostCounter.currency": {
           "type": "string",
