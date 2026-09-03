@@ -28,6 +28,8 @@ The extension automatically searches the current VS Code window’s extension-ho
 
 The extension polls the selected log and records each successful `ccreq` request once. Use `Copilot Cost Counter: Open Workspace Usage` to open `.copilot/usage.jsonl`.
 
+Use the Usage Report view title menu for Refresh and Open Workspace Usage. The gear button beside that menu opens the extension settings.
+
 Raw Copilot logs and generated usage records may contain private workspace or request information. They are excluded by `.gitignore`; do not force-add them to a public repository.
 
 ## Usage Report
@@ -88,6 +90,12 @@ Example workspace settings:
 ```
 
 Model names are normalized before matching, so names with version or provider formatting differences can be entered as they appear in the Copilot log. Overrides are used for newly recorded requests; existing JSONL records are not rewritten.
+
+The Settings editor exposes the override object as a custom-model map. Add a model name as a property and set its `input` and `output` rates; `cachedInput` and `cacheWrite` are optional. Rates remain USD per million tokens even when the report uses another display currency.
+
+## Display Currency
+
+Set `copilotCostCounter.currency` to `USD`, `EUR`, `GBP`, `SEK`, `NOK`, or `DKK`. Because pricing sources are USD-based, set `copilotCostCounter.currencyConversionRate` to the number of display-currency units per USD. Stored JSONL costs remain in USD; the report and money-burn animation use the selected display currency.
 
 ## Development
 

@@ -2,7 +2,7 @@
   "name": "copilot-cost-counter",
   "displayName": "Copilot Cost Counter",
   "description": "Record Copilot request usage and cost summaries from its output log.",
-  "version": "0.1.11",
+  "version": "0.1.13",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -27,11 +27,13 @@
       },
       {
         "command": "copilotCostCounter.refreshReport",
-        "title": "Copilot Cost Counter: Refresh Usage Report"
+        "title": "Copilot Cost Counter: Refresh Usage Report",
+        "icon": "$(refresh)"
       },
       {
         "command": "copilotCostCounter.openSettings",
-        "title": "Copilot Cost Counter: Open Settings"
+        "title": "Copilot Cost Counter: Open Settings",
+        "icon": "$(gear)"
       }
     ],
     "menus": {
@@ -39,12 +41,12 @@
         {
           "command": "copilotCostCounter.refreshReport",
           "when": "view == copilotCostCounter.report",
-          "group": "navigation"
+          "group": "copilotCostCounter@1"
         },
         {
           "command": "copilotCostCounter.openUsage",
           "when": "view == copilotCostCounter.report",
-          "group": "navigation"
+          "group": "copilotCostCounter@2"
         },
         {
           "command": "copilotCostCounter.openSettings",
@@ -77,18 +79,71 @@
         "copilotCostCounter.logPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the GitHub Copilot output log. Leave empty to discover the active VS Code Copilot Chat log automatically."
+          "markdownDescription": "Path to the GitHub Copilot output log. Leave empty to discover the active VS Code window's Copilot Chat logs automatically."
         },
         "copilotCostCounter.pollIntervalMs": {
           "type": "number",
           "default": 1000,
           "minimum": 250,
-          "description": "How often to check the Copilot output log for completed requests."
+          "markdownDescription": "How often to check the Copilot output log for completed requests."
+        },
+        "copilotCostCounter.showMoneyBurn": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show a brief money-burn animation after a request with an estimated cost is recorded."
+        },
+        "copilotCostCounter.currency": {
+          "type": "string",
+          "enum": [
+            "USD",
+            "EUR",
+            "GBP",
+            "SEK",
+            "NOK",
+            "DKK"
+          ],
+          "enumDescriptions": [
+            "US dollar",
+            "Euro",
+            "British pound",
+            "Swedish krona",
+            "Norwegian krone",
+            "Danish krone"
+          ],
+          "default": "USD",
+          "markdownDescription": "Currency used when displaying estimated money values. Pricing rates and stored costs remain in USD; configure a conversion rate separately if using a non-USD display."
+        },
+        "copilotCostCounter.currencyConversionRate": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "markdownDescription": "Display-currency units per USD. For example, enter 0.92 for EUR if one USD equals 0.92 EUR."
         },
         "copilotCostCounter.modelPricingOverrides": {
           "type": "object",
           "default": {},
-          "description": "Optional per-model USD rates per million tokens. Keys are model names; values may include input, cachedInput, cacheWrite, and output."
+          "markdownDescription": "Optional per-model USD rates per million tokens. Add any model name as a property; values support input and output, plus optional cachedInput and cacheWrite.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cachedInput": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cacheWrite": {
+                "type": "number",
+                "minimum": 0
+              },
+              "output": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
         }
       }
     }
