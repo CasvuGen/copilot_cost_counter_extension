@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.vsix
+packages/*.vsix
 .copilot/
 *.log
 .DS_Store

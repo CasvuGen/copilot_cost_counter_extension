@@ -2,6 +2,8 @@
 
 A standalone VS Code companion extension that records completed GitHub Copilot requests from a Copilot output log and writes workspace-local usage summaries.
 
+> **Disclaimer:** This project was vibe coded and is provided as-is for experimentation. Use it entirely at your own risk. It is not affiliated with or endorsed by GitHub or Microsoft.
+
 ## Install From Source
 
 Requirements: VS Code 1.85 or later, Node.js 20 or later, npm, and GitHub Copilot for VS Code.
@@ -11,21 +13,36 @@ From this directory:
 ```sh
 npm install
 npm run package
-code --install-extension copilot-cost-counter-0.1.0.vsix
 ```
+
+`npm run package` increments the patch version, compiles the extension, and creates `packages/copilot-cost-counter-<version>.vsix`. Install that generated VSIX with **Extensions: Install from VSIX...** or with `code --install-extension ./packages/copilot-cost-counter-<version>.vsix`.
 
 Restart or reload VS Code after installation. The generated `.vsix` file can also be installed through **Extensions: Install from VSIX...** in the Extensions view.
 
 ## Configure The Log
 
-The extension defaults to `usage.log` in the first workspace folder. Copilot’s actual output log is commonly outside the workspace, so configure it using either method:
+The extension automatically searches the current VS Code window’s extension-host log directory for the most recently updated `GitHub Copilot Chat.log`. This keeps automatic collection associated with the workspace currently open in that window; no log path input is required. Copilot’s logs are commonly outside the workspace, so configure an explicit path only when automatic discovery does not find the right session:
 
 1. Run `Copilot Cost Counter: Choose Output Log` and select the log file.
-2. Set `copilotCostCounter.logPath` in workspace settings. Relative paths are resolved from the first workspace folder.
+2. Set `copilotCostCounter.logPath` in workspace settings. Relative paths are resolved from the first workspace folder; absolute paths are accepted.
 
 The extension polls the selected log and records each successful `ccreq` request once. Use `Copilot Cost Counter: Open Workspace Usage` to open `.copilot/usage.jsonl`.
 
 Raw Copilot logs and generated usage records may contain private workspace or request information. They are excluded by `.gitignore`; do not force-add them to a public repository.
+
+## Usage Report
+
+After installation, select the **Copilot Cost Counter** graph icon in the Activity Bar to open the workspace-local report. It shows:
+
+- Estimated USD spend and AI credits
+- Request count and records with available cost data
+- Daily spend for the latest 14 days with estimated costs
+- Cost and request counts by model
+- The eight most recent requests
+
+Use **Refresh** in the report when needed. The report also refreshes when the extension appends a new request. Values are calculated only from records written to the current workspace’s `.copilot/usage.jsonl`; records with missing token telemetry are counted as requests but excluded from spend totals. The Copilot Chat log currently exposes the model and duration, but not consumed prompt, output, or cache tokens. The report cannot calculate exact costs until Copilot emits those token counts or exposes them through a supported API.
+
+Use the **Credits** and **Tokens** tabs to switch between dollar/AI-credit totals and token totals. When token counts are present but a model has no input or output rate, the report shows a gray warning naming the model and points to `copilotCostCounter.modelPricingOverrides`.
 
 ## Generated Pricing
 
@@ -44,9 +61,33 @@ npm run fetch-pricing
 
 ## Recorded Data And Limits
 
-Records contain the timestamp, request ID, model, feature, duration, token counts when present in the log, pricing rates, USD costs, and AI-credit costs. The current Copilot output format shown in `usage.log` contains model and duration but not prompt/output token counts. Such records deliberately use `costKind: "unavailable"`.
+Records contain the timestamp, request ID, model, raw feature, derived request type, duration, token counts when present in the log, pricing rates, USD costs, and AI-credit costs. Request types are `chat`, `completion`, `nextEditSuggestion`, and `utility`. The type is inferred from Copilot's feature label; older JSONL records without `requestType` are classified at display time. The current Copilot output format shown in `usage.log` contains model and duration but not prompt/output token counts. Such records deliberately use `costKind: "unavailable"`.
 
 A companion extension cannot access Copilot’s private in-memory telemetry through the public VS Code extension API. Exact per-request billing requires Copilot to emit token usage in the log or expose it through a supported API.
+
+## Pricing Overrides
+
+For models that are not listed on GitHub’s public pricing page, configure rates in `copilotCostCounter.modelPricingOverrides`. Rates are USD per million tokens. The `input` and `output` values are required; `cachedInput` and `cacheWrite` are optional.
+
+Example workspace settings:
+
+```json
+{
+	"copilotCostCounter.modelPricingOverrides": {
+		"gpt-4o-mini-2024-07-18": {
+			"input": 0.15,
+			"cachedInput": 0.075,
+			"output": 0.6
+		},
+		"my-custom-model": {
+			"input": 1.0,
+			"output": 4.0
+		}
+	}
+}
+```
+
+Model names are normalized before matching, so names with version or provider formatting differences can be entered as they appear in the Copilot log. Overrides are used for newly recorded requests; existing JSONL records are not rewritten.
 
 ## Development
 
