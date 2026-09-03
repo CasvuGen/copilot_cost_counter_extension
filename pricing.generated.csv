@@ -1,0 +1,42 @@
+provider,model,tier,threshold,since,input,cachedInput,cacheWrite,output
+"OpenAI","GPT-5 mini","Default","Not applicable","2026-09-03",0.25,0.025,"",2
+"OpenAI","GPT-5.3-Codex","Default","Not applicable","2026-09-03",1.75,0.175,"",14
+"OpenAI","GPT-5.4","Default","≤ 272K","2026-09-03",2.5,0.25,"",15
+"OpenAI","GPT-5.4","Long context","> 272K","2026-09-03",5,0.5,"",22.5
+"OpenAI","GPT-5.4 mini","Default","Not applicable","2026-09-03",0.75,0.075,"",4.5
+"OpenAI","GPT-5.4 nano","Default","Not applicable","2026-09-03",0.2,0.02,"",1.25
+"OpenAI","GPT-5.5","Default","≤ 272K","2026-09-03",5,0.5,"",30
+"OpenAI","GPT-5.5","Long context","> 272K","2026-09-03",10,1,"",45
+"OpenAI","GPT-5.6 Luna","Default","≤ 200K","2026-09-03",0.2,0.02,0.25,1.2
+"OpenAI","GPT-5.6 Luna","Long context","> 200K","2026-09-03",0.4,0.04,0.5,1.8
+"OpenAI","GPT-5.6 Sol1","Default","≤ 272K","2026-09-03",2,0.2,2.5,10
+"OpenAI","GPT-5.6 Sol1","Long context","> 272K","2026-09-03",4,0.4,5,15
+"OpenAI","GPT-5.6 Terra","Default","≤ 272K","2026-09-03",2,0.2,2.5,12
+"OpenAI","GPT-5.6 Terra","Long context","> 272K","2026-09-03",4,0.4,5,18
+"Anthropic","Claude Haiku 4.5","Default","Not applicable","2026-09-03",1,0.1,1.25,5
+"Anthropic","Claude Sonnet 4","Default","Not applicable","2026-09-03",3,0.3,3.75,15
+"Anthropic","Claude Sonnet 4.5","Default","Not applicable","2026-09-03",3,0.3,3.75,15
+"Anthropic","Claude Sonnet 4.6","Default","Not applicable","2026-09-03",3,0.3,3.75,15
+"Anthropic","Claude Opus 4.5","Default","Not applicable","2026-09-03",5,0.5,6.25,25
+"Anthropic","Claude Opus 4.6","Default","Not applicable","2026-09-03",5,0.5,6.25,25
+"Anthropic","Claude Opus 4.7","Default","Not applicable","2026-09-03",5,0.5,6.25,25
+"Anthropic","Claude Opus 4.8","Default","Not applicable","2026-09-03",5,0.5,6.25,25
+"Anthropic","Claude Opus 5","Default","Not applicable","2026-09-03",5,0.5,6.25,25
+"Anthropic","Claude Sonnet 5","Default","Not applicable","2026-09-03",2,0.2,2.5,10
+"Anthropic","Claude Opus 4.8 (fast mode) (preview)","Default","Not applicable","2026-09-03",10,1,12.5,50
+"Anthropic","Claude Fable 5","Default","Not applicable","2026-09-03",10,1,12.5,50
+"Anthropic","Claude Fable 5.1","Default","Not applicable","2026-09-03",10,0.25,12.5,50
+"Google","Gemini 3.1 Pro","Default","≤ 200K","2026-09-03",2,0.2,"",12
+"Google","Gemini 3.1 Pro","Long context","> 200K","2026-09-03",4,0.4,"",18
+"Google","Gemini 3.5 Flash","Default","Not applicable","2026-09-03",1.5,0.15,"",9
+"Google","Gemini 3.6 Flash2","Default","Not applicable","2026-09-03",0.75,0.075,"",3.75
+"Google","Gemini 3.7 Flash2","Default","Not applicable","2026-09-03",0.75,0.075,"",3.75
+"Fine-tuned (GitHub)","Raptor mini","Default","Not applicable","2026-09-03",0.25,0.025,"",2
+"Microsoft","MAI-Code-1-Flash","Default","Not applicable","2026-09-03",0.75,0.075,"",4.5
+"Microsoft","MAI-Code-1.1-Flash","Default","Not applicable","2026-09-03",0.2,0.02,"",1.2
+"xAI","Grok 4.5","Default","≤ 200K","2026-09-03",2,0.5,"",6
+"xAI","Grok 4.5","Long context","> 200K","2026-09-03",4,1,"",12
+"xAI","Grok 4.6","Default","≤ 200K","2026-09-03",2,0.5,"",6
+"xAI","Grok 4.6","Long context","> 200K","2026-09-03",4,1,"",12
+"Moonshot AI","Kimi K2.7 Code","Default","Not applicable","2026-09-03",0.95,0.19,"",4
+"Moonshot AI","Kimi K3","Default","Not applicable","2026-09-03",3,0.3,"",15

@@ -1,0 +1,431 @@
+[
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5 mini",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.25,
+    "cachedInput": 0.025,
+    "output": 2,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.3-Codex",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 1.75,
+    "cachedInput": 0.175,
+    "output": 14,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.4",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 2.5,
+    "cachedInput": 0.25,
+    "output": 15,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.4",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 5,
+    "cachedInput": 0.5,
+    "output": 22.5,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.4 mini",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.75,
+    "cachedInput": 0.075,
+    "output": 4.5,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.4 nano",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.2,
+    "cachedInput": 0.02,
+    "output": 1.25,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.5",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 5,
+    "cachedInput": 0.5,
+    "output": 30,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.5",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 10,
+    "cachedInput": 1,
+    "output": 45,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Luna",
+    "tier": "Default",
+    "threshold": "≤ 200K",
+    "input": 0.2,
+    "cachedInput": 0.02,
+    "cacheWrite": 0.25,
+    "output": 1.2,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Luna",
+    "tier": "Long context",
+    "threshold": "> 200K",
+    "input": 0.4,
+    "cachedInput": 0.04,
+    "cacheWrite": 0.5,
+    "output": 1.8,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Sol1",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 2,
+    "cachedInput": 0.2,
+    "cacheWrite": 2.5,
+    "output": 10,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Sol1",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 4,
+    "cachedInput": 0.4,
+    "cacheWrite": 5,
+    "output": 15,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Terra",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 2,
+    "cachedInput": 0.2,
+    "cacheWrite": 2.5,
+    "output": 12,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Terra",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 4,
+    "cachedInput": 0.4,
+    "cacheWrite": 5,
+    "output": 18,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Haiku 4.5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 1,
+    "cachedInput": 0.1,
+    "cacheWrite": 1.25,
+    "output": 5,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Sonnet 4",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 3,
+    "cachedInput": 0.3,
+    "cacheWrite": 3.75,
+    "output": 15,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Sonnet 4.5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 3,
+    "cachedInput": 0.3,
+    "cacheWrite": 3.75,
+    "output": 15,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Sonnet 4.6",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 3,
+    "cachedInput": 0.3,
+    "cacheWrite": 3.75,
+    "output": 15,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Opus 4.5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 5,
+    "cachedInput": 0.5,
+    "cacheWrite": 6.25,
+    "output": 25,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Opus 4.6",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 5,
+    "cachedInput": 0.5,
+    "cacheWrite": 6.25,
+    "output": 25,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Opus 4.7",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 5,
+    "cachedInput": 0.5,
+    "cacheWrite": 6.25,
+    "output": 25,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Opus 4.8",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 5,
+    "cachedInput": 0.5,
+    "cacheWrite": 6.25,
+    "output": 25,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Opus 5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 5,
+    "cachedInput": 0.5,
+    "cacheWrite": 6.25,
+    "output": 25,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Sonnet 5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 2,
+    "cachedInput": 0.2,
+    "cacheWrite": 2.5,
+    "output": 10,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Opus 4.8 (fast mode) (preview)",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 10,
+    "cachedInput": 1,
+    "cacheWrite": 12.5,
+    "output": 50,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Fable 5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 10,
+    "cachedInput": 1,
+    "cacheWrite": 12.5,
+    "output": 50,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Fable 5.1",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 10,
+    "cachedInput": 0.25,
+    "cacheWrite": 12.5,
+    "output": 50,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.1 Pro",
+    "tier": "Default",
+    "threshold": "≤ 200K",
+    "input": 2,
+    "cachedInput": 0.2,
+    "output": 12,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.1 Pro",
+    "tier": "Long context",
+    "threshold": "> 200K",
+    "input": 4,
+    "cachedInput": 0.4,
+    "output": 18,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.5 Flash",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 1.5,
+    "cachedInput": 0.15,
+    "output": 9,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.6 Flash2",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.75,
+    "cachedInput": 0.075,
+    "output": 3.75,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.7 Flash2",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.75,
+    "cachedInput": 0.075,
+    "output": 3.75,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Fine-tuned (GitHub)",
+    "model": "Raptor mini",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.25,
+    "cachedInput": 0.025,
+    "output": 2,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Microsoft",
+    "model": "MAI-Code-1-Flash",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.75,
+    "cachedInput": 0.075,
+    "output": 4.5,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Microsoft",
+    "model": "MAI-Code-1.1-Flash",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.2,
+    "cachedInput": 0.02,
+    "output": 1.2,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "xAI",
+    "model": "Grok 4.5",
+    "tier": "Default",
+    "threshold": "≤ 200K",
+    "input": 2,
+    "cachedInput": 0.5,
+    "output": 6,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "xAI",
+    "model": "Grok 4.5",
+    "tier": "Long context",
+    "threshold": "> 200K",
+    "input": 4,
+    "cachedInput": 1,
+    "output": 12,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "xAI",
+    "model": "Grok 4.6",
+    "tier": "Default",
+    "threshold": "≤ 200K",
+    "input": 2,
+    "cachedInput": 0.5,
+    "output": 6,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "xAI",
+    "model": "Grok 4.6",
+    "tier": "Long context",
+    "threshold": "> 200K",
+    "input": 4,
+    "cachedInput": 1,
+    "output": 12,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Moonshot AI",
+    "model": "Kimi K2.7 Code",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.95,
+    "cachedInput": 0.19,
+    "output": 4,
+    "since": "2026-09-03"
+  },
+  {
+    "provider": "Moonshot AI",
+    "model": "Kimi K3",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 3,
+    "cachedInput": 0.3,
+    "output": 15,
+    "since": "2026-09-03"
+  }
+]

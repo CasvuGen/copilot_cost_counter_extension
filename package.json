@@ -1,0 +1,41 @@
+{
+  "name": "copilot-cost-counter",
+  "displayName": "Copilot Cost Counter",
+  "description": "Record Copilot request usage and cost summaries from its output log.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "copilotCostCounter.chooseLog", "title": "Copilot Cost Counter: Choose Output Log" },
+      { "command": "copilotCostCounter.openUsage", "title": "Copilot Cost Counter: Open Workspace Usage" }
+    ],
+    "configuration": {
+      "title": "Copilot Cost Counter",
+      "properties": {
+        "copilotCostCounter.logPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the GitHub Copilot output log. An empty value uses usage.log in the first workspace folder."
+        },
+        "copilotCostCounter.pollIntervalMs": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 250,
+          "description": "How often to check the Copilot output log for completed requests."
+        }
+      }
+    }
+  },
+  "scripts": { "fetch-pricing": "node ./scripts/fetch-pricing.mjs", "compile": "npm run fetch-pricing && tsc -p ./tsconfig.json", "watch": "tsc -p ./tsconfig.json --watch", "package": "npm run compile && vsce package --allow-missing-repository" },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}
