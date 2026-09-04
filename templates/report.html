@@ -118,6 +118,45 @@
             display: none;
         }
 
+        .activity-section {
+            margin-top: 28px;
+            padding-top: 4px;
+            border-top: 1px solid var(--vscode-panel-border);
+        }
+
+        .activity-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            margin: 4px 0 12px;
+        }
+
+        .activity-mode {
+            border: 0;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            background: transparent;
+            color: var(--vscode-descriptionForeground);
+            padding: 7px 12px 6px;
+            margin-bottom: -1px;
+        }
+
+        .activity-mode:hover {
+            color: var(--vscode-foreground);
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+
+        .activity-mode.active {
+            color: var(--vscode-foreground);
+            border-bottom-color: var(--vscode-focusBorder);
+            background: transparent;
+            font-weight: 600;
+        }
+
+        [data-activity-panel][hidden] {
+            display: none;
+        }
+
         .cards {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -148,6 +187,31 @@
             gap: 5px;
             border-bottom: 1px solid var(--vscode-widget-border);
             padding: 8px 2px 0;
+        }
+
+        .spend-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 22px 0 10px;
+        }
+
+        .spend-heading h2 {
+            margin: 0;
+        }
+
+        select {
+            min-width: 0;
+            max-width: 56%;
+            color: var(--vscode-dropdown-foreground);
+            background: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            padding: 4px 6px;
+        }
+
+        .spend-chart[hidden] {
+            display: none;
         }
 
         .bar-group {
@@ -236,6 +300,156 @@
             color: var(--vscode-descriptionForeground);
             padding: 12px 0;
         }
+
+        .chat-group {
+            border: 1px solid var(--vscode-widget-border);
+            margin: 6px 0;
+        }
+
+        .chat-group summary {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            cursor: pointer;
+            padding: 9px;
+            list-style: none;
+        }
+
+        .chat-group summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .chat-group summary > span {
+            min-width: 0;
+        }
+
+        .chat-group summary small {
+            display: block;
+            margin-top: 3px;
+        }
+
+        .chat-details {
+            border-top: 1px solid var(--vscode-widget-border);
+            padding: 0 9px;
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            overflow: hidden;
+            transition: grid-template-rows 160ms ease, opacity 160ms ease;
+        }
+
+        .chat-group[open] > .chat-details {
+            grid-template-rows: 1fr;
+            opacity: 1;
+        }
+
+        .chat-details-content {
+            min-height: 0;
+        }
+
+        .turn-group {
+            border-bottom: 1px solid var(--vscode-widget-border);
+            padding: 0 3px;
+            margin-left: 10px;
+        }
+
+        .turn-group:last-child {
+            border-bottom: 0;
+        }
+
+        .turn-group summary {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            cursor: pointer;
+            padding: 8px 0;
+            color: var(--vscode-descriptionForeground);
+            list-style: none;
+            font-size: 11px;
+        }
+
+        .turn-group summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .turn-group summary > span {
+            min-width: 0;
+        }
+
+        .turn-group summary small {
+            display: block;
+            margin-top: 3px;
+        }
+
+        .turn-details {
+            margin-left: 10px;
+            padding-left: 10px;
+            border-left: 2px solid var(--vscode-textSeparator-foreground);
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            overflow: hidden;
+            transition: grid-template-rows 140ms ease, opacity 140ms ease;
+        }
+
+        .turn-group[open] > .turn-details {
+            grid-template-rows: 1fr;
+            opacity: 1;
+        }
+
+        .turn-details-content {
+            min-height: 0;
+        }
+
+        .chat-request {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--vscode-widget-border);
+            font-size: 11px;
+            padding-left: 8px;
+        }
+
+        .chat-request:last-child {
+            border-bottom: 0;
+        }
+
+        .request-enter {
+            animation: request-enter 240ms ease-out both;
+        }
+
+        .chat-group.has-new-activity {
+            animation: chat-flash 700ms ease-out;
+        }
+
+        @keyframes request-enter {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes chat-flash {
+            0% { background: color-mix(in srgb, var(--vscode-focusBorder) 26%, transparent); }
+            100% { background: transparent; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .chat-details,
+            .turn-details {
+                transition: none;
+            }
+
+            .request-enter,
+            .chat-group.has-new-activity {
+                animation: none;
+            }
+        }
     </style>
 </head>
 
@@ -249,8 +463,15 @@
     </div>
     <section class="mode-panel" data-panel="credits">
         <div class="cards">{{creditCards}}</div>
-        <h2>Daily spend</h2>
-        {{dailySpend}}
+        <div class="spend-heading">
+            <h2>Spend</h2>
+            <select id="spend-group" aria-label="Group spend by">
+                <option value="daily">Daily</option>
+                <option value="chat">Conversation</option>
+                <option value="feature">Feature</option>
+            </select>
+        </div>
+        {{spendCharts}}
         <h2>By model</h2>
         {{modelBreakdown}}
     </section>
@@ -258,8 +479,20 @@
         <div class="cards">{{tokenCards}}</div>
         <p class="subtle">{{tokenSummary}}</p>
     </section>
-    <h2>Recent requests</h2>
-    {{recentRequests}}
+    <section class="activity-section">
+        <h2>Activity</h2>
+        <div class="activity-tabs" role="tablist">
+            <button class="activity-mode active" role="tab" aria-selected="true" data-activity-mode="requests">Recent requests</button>
+            <button class="activity-mode" role="tab" aria-selected="false" data-activity-mode="chats">Chats</button>
+        </div>
+        <div data-activity-panel="requests">
+            <h2>Recent requests</h2>
+            {{recentRequests}}
+        </div>
+        <div data-activity-panel="chats" hidden>
+            {{recentChats}}
+        </div>
+    </section>
     <script nonce="{{nonce}}">
         window.addEventListener('message', event => {
             if (event.data?.type !== 'moneyBurn') return;
@@ -274,15 +507,66 @@
         });
 
         const vscode = acquireVsCodeApi();
-        document.querySelectorAll('.dismiss').forEach(button => button.addEventListener('click', () => button.closest('.notice').remove()));
-        document.querySelectorAll('.mode').forEach(button => button.addEventListener('click', () => {
+        const savedState = vscode.getState() || {};
+        const previousRequestIds = new Set(savedState.requestIds || []);
+        const expandedChatIds = new Set(savedState.expandedChatIds || []);
+        const expandedTurnIds = new Set(savedState.expandedTurnIds || []);
+        const persistState = () => vscode.setState({
+            ...vscode.getState(),
+            requestIds: Array.from(document.querySelectorAll('[data-request-id]')).map(item => item.dataset.requestId),
+            expandedChatIds: Array.from(document.querySelectorAll('.chat-group[open]')).map(item => item.dataset.chatId),
+            expandedTurnIds: Array.from(document.querySelectorAll('.turn-group[open]')).map(item => item.dataset.turnId)
+        });
+        const selectMode = mode => {
             document.querySelectorAll('.mode').forEach(item => {
-                const active = item === button;
+                const active = item.dataset.mode === mode;
                 item.classList.toggle('active', active);
                 item.setAttribute('aria-selected', String(active));
             });
-            document.querySelectorAll('.mode-panel').forEach(panel => panel.hidden = panel.dataset.panel !== button.dataset.mode);
+            document.querySelectorAll('.mode-panel').forEach(panel => panel.hidden = panel.dataset.panel !== mode);
+        };
+        const selectActivityMode = mode => {
+            document.querySelectorAll('.activity-mode').forEach(item => {
+                const active = item.dataset.activityMode === mode;
+                item.classList.toggle('active', active);
+                item.setAttribute('aria-selected', String(active));
+            });
+            document.querySelectorAll('[data-activity-panel]').forEach(panel => panel.hidden = panel.dataset.activityPanel !== mode);
+        };
+        const selectSpendGroup = group => {
+            document.querySelectorAll('[data-spend-chart]').forEach(chart => chart.hidden = chart.dataset.spendChart !== group);
+            document.querySelector('#spend-group').value = group;
+        };
+        selectMode(savedState.mode === 'tokens' ? 'tokens' : 'credits');
+        selectActivityMode(savedState.activityMode === 'chats' ? 'chats' : 'requests');
+        selectSpendGroup(['daily', 'chat', 'feature'].includes(savedState.spendGroup) ? savedState.spendGroup : 'daily');
+        document.querySelectorAll('.chat-group').forEach(chat => chat.open = expandedChatIds.has(chat.dataset.chatId));
+        document.querySelectorAll('.turn-group').forEach(turn => turn.open = expandedTurnIds.has(turn.dataset.turnId));
+        if (previousRequestIds.size > 0) {
+            document.querySelectorAll('[data-request-id]').forEach(item => {
+                if (!previousRequestIds.has(item.dataset.requestId)) item.classList.add('request-enter');
+            });
+            document.querySelectorAll('.chat-group').forEach(chat => {
+                const hasNewRequest = Array.from(chat.querySelectorAll('[data-request-id]')).some(item => !previousRequestIds.has(item.dataset.requestId));
+                if (hasNewRequest) chat.classList.add('has-new-activity');
+            });
+        }
+        document.querySelectorAll('.chat-group, .turn-group').forEach(details => details.addEventListener('toggle', persistState));
+        persistState();
+        document.querySelectorAll('.dismiss').forEach(button => button.addEventListener('click', () => button.closest('.notice').remove()));
+        document.querySelectorAll('.mode').forEach(button => button.addEventListener('click', () => {
+            selectMode(button.dataset.mode);
+            vscode.setState({ ...vscode.getState(), mode: button.dataset.mode });
         }));
+        document.querySelectorAll('.activity-mode').forEach(button => button.addEventListener('click', () => {
+            selectActivityMode(button.dataset.activityMode);
+            vscode.setState({ ...vscode.getState(), activityMode: button.dataset.activityMode });
+        }));
+        document.querySelector('#spend-group').addEventListener('change', event => {
+            const group = event.target.value;
+            selectSpendGroup(group);
+            vscode.setState({ ...vscode.getState(), spendGroup: group });
+        });
     </script>
 </body>
 

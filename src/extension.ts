@@ -5,6 +5,7 @@ import generatedPricing from './pricing.generated.json';
 
 const usageDirectory = '.copilot';
 const usageFileName = 'usage.jsonl';
+const usageSchemaId = 4;
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
 
 type ModelPricing = { input: number; cachedInput?: number; cacheWrite?: number; output: number };
@@ -19,9 +20,15 @@ const pricing: Record<string, ModelPricing> = fallbackPricing;
 const pricingUpdatedAt: string | null = generatedRows.length > 0 ? new Date().toISOString() : null;
 
 type UsageRecord = {
+  schemaId: number;
   timestamp: string;
   sourceLog: string;
   requestId: string;
+  chatId?: string;
+  turnId?: string;
+  conversationTitle?: string;
+  toolNames?: string[];
+  toolCallCount?: number;
   model: string;
   feature: string;
   requestType: RequestType;
@@ -52,8 +59,14 @@ type UsageRecord = {
   costKind: 'estimated' | 'unavailable';
 };
 
-type ReportRecord = Pick<UsageRecord, 'timestamp' | 'requestId' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
-type CopilotUsage = { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number } };
+type ReportRecord = Pick<UsageRecord, 'schemaId' | 'timestamp' | 'requestId' | 'chatId' | 'turnId' | 'conversationTitle' | 'toolNames' | 'toolCallCount' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
+type CopilotUsage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+  copilot_usage?: { total_nano_aiu?: number };
+};
+type CopilotRequest = { usage?: CopilotUsage; chatId?: string; turnId?: string; conversationTitle?: string; toolNames?: string[]; toolCallCount?: number };
 type ReportTemplates = {
   report: string;
   card: string;
@@ -62,6 +75,10 @@ type ReportTemplates = {
   modelRow: string;
   recentRow: string;
   recentTable: string;
+  chatGroup: string;
+  turnGroup: string;
+  chatRow: string;
+  chatTable: string;
   pricingNotice: string;
   empty: string;
 };
@@ -70,9 +87,80 @@ function fillTemplate(template: string, values: Record<string, string>): string 
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key] ?? '');
 }
 
+function findStringByKey(value: unknown, keys: Set<string>, depth = 0): string | undefined {
+  if (depth > 4 || value === null || typeof value !== 'object') return undefined;
+  for (const [key, nested] of Object.entries(value)) {
+    if (keys.has(key.toLowerCase()) && typeof nested === 'string' && nested.length > 0) return nested;
+    const found = findStringByKey(nested, keys, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function conversationTitleFromValue(value: unknown, depth = 0): string | undefined {
+  if (depth > 6 || value === null || typeof value !== 'object') return undefined;
+  for (const [key, nested] of Object.entries(value)) {
+    if (/response|completion|assistant/i.test(key)) {
+      const title = lastText(nested);
+      if (title) return title;
+    }
+    const title = conversationTitleFromValue(nested, depth + 1);
+    if (title) return title;
+  }
+  return undefined;
+}
+
+function lastText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const title = value.trim().replace(/^['"`]+|['"`]+$/g, '');
+    return title.length > 0 && title.length <= 160 ? title : undefined;
+  }
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index--) {
+      const title = lastText(value[index]);
+      if (title) return title;
+    }
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.values(value);
+    for (let index = entries.length - 1; index >= 0; index--) {
+      const title = lastText(entries[index]);
+      if (title) return title;
+    }
+  }
+  return undefined;
+}
+
+function toolUsageFromValue(value: unknown, names = new Set<string>(), depth = 0): { names: string[]; count: number } {
+  if (depth > 8 || value === null || typeof value !== 'object') return { names: [...names], count: 0 };
+  let count = 0;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = toolUsageFromValue(item, names, depth + 1);
+      count += nested.count;
+    }
+    return { names: [...names], count };
+  }
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (/tool[_-]?calls?|tool[_-]?uses?/i.test(key)) {
+      const values = Array.isArray(nestedValue) ? nestedValue : [nestedValue];
+      for (const toolCall of values) {
+        count += 1;
+        const name = typeof toolCall === 'object' && toolCall !== null
+          ? findStringByKey(toolCall, new Set(['name', 'toolname', 'functionname']))
+          : undefined;
+        if (name) names.add(name);
+      }
+    }
+    const nested = toolUsageFromValue(nestedValue, names, depth + 1);
+    count += nested.count;
+  }
+  return { names: [...names], count };
+}
+
 async function loadReportTemplates(extensionPath: string): Promise<ReportTemplates> {
   const templatePath = (name: string) => path.join(extensionPath, 'templates', name);
-  const [report, card, dailyBar, dailyChart, modelRow, recentRow, recentTable, pricingNotice, empty] = await Promise.all([
+  const [report, card, dailyBar, dailyChart, modelRow, recentRow, recentTable, chatGroup, turnGroup, chatRow, chatTable, pricingNotice, empty] = await Promise.all([
     fs.readFile(templatePath('report.html'), 'utf8'),
     fs.readFile(templatePath('card.html'), 'utf8'),
     fs.readFile(templatePath('daily-bar.html'), 'utf8'),
@@ -80,10 +168,14 @@ async function loadReportTemplates(extensionPath: string): Promise<ReportTemplat
     fs.readFile(templatePath('model-row.html'), 'utf8'),
     fs.readFile(templatePath('recent-row.html'), 'utf8'),
     fs.readFile(templatePath('recent-table.html'), 'utf8'),
+    fs.readFile(templatePath('chat-group.html'), 'utf8'),
+    fs.readFile(templatePath('turn-group.html'), 'utf8'),
+    fs.readFile(templatePath('chat-row.html'), 'utf8'),
+    fs.readFile(templatePath('chat-table.html'), 'utf8'),
     fs.readFile(templatePath('pricing-notice.html'), 'utf8'),
     fs.readFile(templatePath('empty.html'), 'utf8')
   ]);
-  return { report, card, dailyBar, dailyChart, modelRow, recentRow, recentTable, pricingNotice, empty };
+  return { report, card, dailyBar, dailyChart, modelRow, recentRow, recentTable, chatGroup, turnGroup, chatRow, chatTable, pricingNotice, empty };
 }
 
 function normalizeModel(model: string): string {
@@ -116,10 +208,12 @@ function requestTypeLabel(record: Pick<ReportRecord, 'requestType' | 'feature'>)
 const displayNumber = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 function formatDecimal(value: number): string {
+  if (value === 0) return '-';
   return displayNumber.format(Math.floor(value * 10) / 10);
 }
 
 function formatMoney(valueUsd: number): string {
+  if (valueUsd === 0) return '-';
   const configuration = vscode.workspace.getConfiguration('copilotCostCounter');
   const currency = configuration.get<string>('currency', 'USD');
   const conversionRate = configuration.get<number>('currencyConversionRate', 1);
@@ -127,6 +221,7 @@ function formatMoney(valueUsd: number): string {
 }
 
 function formatRecentMoney(valueUsd: number): string {
+  if (valueUsd === 0) return '-';
   const configuration = vscode.workspace.getConfiguration('copilotCostCounter');
   const currency = configuration.get<string>('currency', 'USD');
   const conversionRate = configuration.get<number>('currencyConversionRate', 1);
@@ -145,6 +240,16 @@ function formatBurnMoney(valueUsd: number): string {
 
 function formatUnavailable(record: Pick<ReportRecord, 'requestType' | 'feature'>): string {
   return requestTypeOf(record) === 'utility' ? '-' : '<span class="muted">Unavailable</span>';
+}
+
+function formatActivityDate(timestamp: string): string {
+  return timestamp.replace('T', ' ').slice(0, 16);
+}
+
+function formatToolUsage(record: Pick<ReportRecord, 'toolNames' | 'toolCallCount'>): string {
+  if (!record.toolCallCount) return '';
+  const names = record.toolNames?.length ? `: ${record.toolNames.join(', ')}` : '';
+  return ` · ${record.toolCallCount} tool${record.toolCallCount === 1 ? '' : 's'}${names}`;
 }
 
 function configuredPricing(): Record<string, ModelPricing> {
@@ -196,7 +301,17 @@ async function discoverCopilotLogs(logRoot: string): Promise<string[]> {
     .map(entry => entry.candidate);
 }
 
-function parseLine(line: string, sourceLog: string): UsageRecord | undefined {
+function conversationIdFromLine(line: string): string | undefined {
+  const match = line.match(/\[ChatWebSocketManager\][^\r\n]*conversation\s+([0-9a-f]{8}-[0-9a-f-]{27,})/i);
+  return match?.[1];
+}
+
+function turnIdFromLine(line: string): string | undefined {
+  const match = line.match(/(?:turn(?:Id|_id)?|userTurnId)[\s:=]+([0-9a-f]{8}-[0-9a-f-]{27,})/i);
+  return match?.[1];
+}
+
+function parseLine(line: string, sourceLog: string, chatId?: string, turnId?: string): UsageRecord | undefined {
   const match = line.match(/ccreq:([^\s.]+)\.copilotmd\s+\|\s+(success|cancelled|failed)\s+\|\s+([^|]+?)\s+\|\s+(\d+)ms\s+\|\s+\[([^\]]+)\]/i);
   if (!match || match[2].toLowerCase() !== 'success') {
     return undefined;
@@ -220,9 +335,12 @@ function parseLine(line: string, sourceLog: string): UsageRecord | undefined {
   const outputCredits = outputCostUsd === null ? null : outputCostUsd / .01;
 
   return {
+    schemaId: usageSchemaId,
     timestamp: line.slice(0, 23),
     sourceLog,
     requestId: match[1],
+    chatId,
+    turnId,
     model,
     feature: match[5],
     requestType: classifyRequestType(match[5]),
@@ -254,7 +372,7 @@ function parseLine(line: string, sourceLog: string): UsageRecord | undefined {
   };
 }
 
-function applyCopilotUsage(record: UsageRecord, usage: CopilotUsage): UsageRecord {
+function applyCopilotUsage(record: UsageRecord, usage: CopilotUsage, chatId = record.chatId): UsageRecord {
   const promptTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : record.promptTokens;
   const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : record.outputTokens;
   const cacheTokens = typeof usage.prompt_tokens_details?.cached_tokens === 'number' ? usage.prompt_tokens_details.cached_tokens : record.cacheTokens;
@@ -265,9 +383,14 @@ function applyCopilotUsage(record: UsageRecord, usage: CopilotUsage): UsageRecor
   const outputCostUsd = modelPricing && outputTokens !== null ? outputTokens * modelPricing.output / 1_000_000 : null;
   const cacheCostUsd = modelPricing && cacheTokens !== null && modelPricing.cachedInput !== undefined ? cacheTokens * modelPricing.cachedInput / 1_000_000 : null;
   const cacheWriteCostUsd = modelPricing && cacheWriteTokens !== null && modelPricing.cacheWrite !== undefined ? cacheWriteTokens * modelPricing.cacheWrite / 1_000_000 : null;
-  const costUsd = inputCostUsd !== null && outputCostUsd !== null ? inputCostUsd + outputCostUsd + (cacheCostUsd ?? 0) + (cacheWriteCostUsd ?? 0) : null;
+  const tokenCostUsd = inputCostUsd !== null && outputCostUsd !== null ? inputCostUsd + outputCostUsd + (cacheCostUsd ?? 0) + (cacheWriteCostUsd ?? 0) : null;
+  const nanoAiu = usage.copilot_usage?.total_nano_aiu;
+  const hasCopilotUsage = typeof nanoAiu === 'number' && Number.isFinite(nanoAiu) && nanoAiu >= 0;
+  const aiCredits = hasCopilotUsage ? nanoAiu / 1_000_000_000 : tokenCostUsd === null ? null : tokenCostUsd / .01;
+  const costUsd = hasCopilotUsage ? (nanoAiu / 1_000_000_000) * .01 : tokenCostUsd;
   return {
     ...record,
+    chatId,
     promptTokens,
     freshInputTokens,
     outputTokens,
@@ -288,17 +411,23 @@ function applyCopilotUsage(record: UsageRecord, usage: CopilotUsage): UsageRecor
     cachedInputCredits: cacheCostUsd === null ? null : cacheCostUsd / .01,
     cacheWriteCredits: cacheWriteCostUsd === null ? null : cacheWriteCostUsd / .01,
     outputCredits: outputCostUsd === null ? null : outputCostUsd / .01,
-    aiCredits: costUsd === null ? null : costUsd / .01,
+    aiCredits,
     costKind: costUsd === null ? 'unavailable' : 'estimated'
   };
 }
 
-async function readCopilotUsage(requestId: string): Promise<CopilotUsage | undefined> {
+async function readCopilotRequest(requestId: string): Promise<CopilotRequest | undefined> {
   try {
     const canonicalRequestId = requestId.replace(/\.copilotmd$/i, '');
     const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(`ccreq:${canonicalRequestId}.json`));
-    const value = JSON.parse(document.getText()) as { metadata?: { usage?: CopilotUsage } };
-    return value.metadata?.usage;
+    const value = JSON.parse(document.getText()) as Record<string, unknown>;
+    const metadata = (value.metadata ?? {}) as Record<string, unknown>;
+    const usage = (metadata.usage ?? value.usage) as CopilotUsage | undefined;
+    const chatId = findStringByKey(value, new Set(['conversationid', 'chatid', 'sessionid']));
+    const turnId = findStringByKey(value, new Set(['turnid', 'turn_id', 'userturnid']));
+    const conversationTitle = conversationTitleFromValue(value);
+    const toolUsage = toolUsageFromValue(value);
+    return { usage, chatId, turnId, conversationTitle, toolNames: toolUsage.names, toolCallCount: toolUsage.count };
   } catch {
     return undefined;
   }
@@ -311,8 +440,8 @@ async function readUsageRecords(): Promise<ReportRecord[]> {
     const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, usageFileName), 'utf8');
     return content.split(/\r?\n/).filter(Boolean).flatMap(line => {
       try {
-        const record = JSON.parse(line) as ReportRecord;
-        return typeof record.requestId === 'string' ? [record] : [];
+        const record = JSON.parse(line) as Partial<ReportRecord>;
+        return typeof record.requestId === 'string' ? [{ ...record, schemaId: typeof record.schemaId === 'number' ? record.schemaId : 1 } as ReportRecord] : [];
       } catch {
         return [];
       }
@@ -362,8 +491,8 @@ class UsageReportProvider implements vscode.WebviewViewProvider {
       })()
       : costUsd;
     if (amountUsd <= 0) return;
-    const durationMs = Math.max(100, Math.min(10000, configuration.get<number>('moneyBurnDurationMs', 900)));
-    const sizePx = Math.max(8, Math.min(72, configuration.get<number>('moneyBurnSizePx', 18)));
+    const durationMs = Math.max(100, Math.min(10000, configuration.get<number>('moneyBurnDurationMs', 2000)));
+    const sizePx = Math.max(8, Math.min(72, configuration.get<number>('moneyBurnSizePx', 28)));
     const origin = configuration.get<string>('moneyBurnOrigin', 'bottom-right');
     void this.view.webview.postMessage({ type: 'moneyBurn', amount: formatBurnMoney(amountUsd), durationMs, sizePx, origin });
   }
@@ -386,38 +515,89 @@ function renderReportFromTemplates(records: ReportRecord[], templates: ReportTem
   const tokenRecords = records.filter(record => record.promptTokens !== null || record.outputTokens !== null || record.cacheTokens !== null || record.cacheWriteTokens !== null).length;
   const missingPriceModels = [...new Set(billableRecords.filter(record => (record.promptTokens !== null || record.outputTokens !== null || record.cacheTokens !== null || record.cacheWriteTokens !== null) && (record.inputRateUsdPerMillion === null || record.outputRateUsdPerMillion === null)).map(record => record.model))];
   const byDay = new Map<string, number>();
+  const byChat = new Map<string, number>();
+  const byFeature = new Map<string, number>();
   const byModel = new Map<string, { cost: number; requests: number }>();
+  const conversationTitles = new Map<string, string>();
+  for (const record of records) {
+    if (record.chatId && record.conversationTitle && !conversationTitles.has(record.chatId)) conversationTitles.set(record.chatId, record.conversationTitle);
+  }
   for (const record of estimated) {
     const day = record.timestamp.slice(0, 10) || 'Unknown';
     byDay.set(day, (byDay.get(day) ?? 0) + (record.costUsd ?? 0));
+    const chat = record.chatId ? conversationTitles.get(record.chatId) ?? `Chat ${record.chatId.slice(0, 12)}` : 'Requests without chat metadata';
+    byChat.set(chat, (byChat.get(chat) ?? 0) + (record.costUsd ?? 0));
+    byFeature.set(record.feature, (byFeature.get(record.feature) ?? 0) + (record.costUsd ?? 0));
     const model = byModel.get(record.model) ?? { cost: 0, requests: 0 };
     model.cost += record.costUsd ?? 0;
     model.requests += 1;
     byModel.set(record.model, model);
   }
-  const maxDay = Math.max(...byDay.values(), 0.000001);
   const maxModel = Math.max(...[...byModel.values()].map(model => model.cost), 0.000001);
   const empty = (message: string) => fillTemplate(templates.empty, { message: escapeHtml(message) });
   const card = (label: string, value: string) => fillTemplate(templates.card, { label: escapeHtml(label), value: escapeHtml(value) });
-  const dailySpend = byDay.size ? fillTemplate(templates.dailyChart, { bars: [...byDay.entries()].slice(-14).map(([day, cost]) => fillTemplate(templates.dailyBar, {
-    height: String(Math.max(4, cost / maxDay * 100)), title: escapeHtml(`${day}: ${formatMoney(cost)}`), day: escapeHtml(day.slice(5))
-  })).join('') }) : empty('No estimated cost data yet.');
+  const spendChart = (entries: [string, number][], label: (key: string) => string) => {
+    const maximum = Math.max(...entries.map(([, cost]) => cost), 0.000001);
+    return entries.length ? fillTemplate(templates.dailyChart, { bars: entries.map(([key, cost]) => fillTemplate(templates.dailyBar, {
+      height: String(Math.max(4, cost / maximum * 100)), title: escapeHtml(`${key}: ${formatMoney(cost)}`), day: escapeHtml(label(key))
+    })).join('') }) : empty('No estimated cost data yet.');
+  };
+  const spendCharts = {
+    daily: spendChart([...byDay.entries()].sort(([left], [right]) => left.localeCompare(right)).slice(-14), day => day.slice(5)),
+    chat: spendChart([...byChat.entries()].sort((left, right) => right[1] - left[1]).slice(0, 10), chat => chat.slice(0, 14)),
+    feature: spendChart([...byFeature.entries()].sort((left, right) => right[1] - left[1]).slice(0, 10), feature => feature.slice(0, 14))
+  };
   const modelBreakdown = byModel.size ? [...byModel.entries()].sort((left, right) => right[1].cost - left[1].cost).slice(0, 6).map(([model, value]) => fillTemplate(templates.modelRow, {
     model: escapeHtml(model), cost: escapeHtml(formatMoney(value.cost)), width: String(value.cost / maxModel * 100), requests: String(value.requests), plural: value.requests === 1 ? '' : 's'
   })).join('') : empty('No model cost data yet.');
-  const rows = records.slice(-8).reverse().map(record => fillTemplate(templates.recentRow, {
-    style: requestTypeOf(record) === 'utility' ? 'opacity:.55' : '', timestamp: escapeHtml(record.timestamp.replace('T', ' ').slice(0, 16)), model: escapeHtml(record.model),
-    requestType: escapeHtml(requestTypeLabel(record)), cost: record.costUsd === null ? formatUnavailable(record) : formatRecentMoney(record.costUsd), credits: record.aiCredits === null ? formatUnavailable(record) : formatDecimal(record.aiCredits)
+  const rows = records.slice(-20).reverse().map(record => fillTemplate(templates.recentRow, {
+    requestId: escapeHtml(record.requestId), style: requestTypeOf(record) === 'utility' || record.costUsd === 0 ? 'opacity:.55' : '', timestamp: escapeHtml(record.timestamp.replace('T', ' ').slice(0, 16)), model: escapeHtml(record.model),
+    requestType: escapeHtml(record.feature), cost: record.costUsd === null ? formatUnavailable(record) : formatRecentMoney(record.costUsd), credits: record.aiCredits === null ? formatUnavailable(record) : formatDecimal(record.aiCredits)
   })).join('');
   const recentRequests = rows ? fillTemplate(templates.recentTable, { rows }) : empty('No usage records yet.');
+  const chats = new Map<string, ReportRecord[]>();
+  for (const record of records) {
+    const key = record.chatId ?? 'unavailable';
+    const group = chats.get(key) ?? [];
+    group.push(record);
+    chats.set(key, group);
+  }
+  const chatGroups = [...chats.entries()].sort((left, right) => right[1][right[1].length - 1].timestamp.localeCompare(left[1][left[1].length - 1].timestamp)).slice(0, 20).map(([key, chatRecords]) => {
+    const estimatedChatCost = chatRecords.reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
+    const conversationTitle = chatRecords.find(record => record.conversationTitle)?.conversationTitle;
+    const title = conversationTitle ?? (key === 'unavailable' ? 'Older requests without chat metadata' : `Chat ${key.slice(0, 12)}`);
+    const chatDate = formatActivityDate(chatRecords[chatRecords.length - 1].timestamp);
+    const turns = new Map<string, ReportRecord[]>();
+    for (const record of chatRecords) {
+      const turnKey = record.turnId ?? `request:${record.requestId}`;
+      const turn = turns.get(turnKey) ?? [];
+      turn.push(record);
+      turns.set(turnKey, turn);
+    }
+    const turnGroups = [...turns.entries()].sort((left, right) => left[1][left[1].length - 1].timestamp.localeCompare(right[1][right[1].length - 1].timestamp)).reverse().map(([turnKey, turnRecords]) => {
+      const turnCost = turnRecords.reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
+      const turnTitle = turnKey.startsWith('request:') ? 'Request without turn metadata' : `Turn ${turnKey.slice(0, 12)}`;
+      const requestRows = turnRecords.slice().reverse().map(record => fillTemplate(templates.chatRow, {
+        requestId: escapeHtml(record.requestId), style: requestTypeOf(record) === 'utility' || record.costUsd === 0 ? 'opacity:.55' : '', timestamp: escapeHtml(formatActivityDate(record.timestamp)), model: escapeHtml(record.model), requestType: escapeHtml(record.feature), tools: escapeHtml(formatToolUsage(record)),
+        cost: record.costUsd === null ? formatUnavailable(record) : formatRecentMoney(record.costUsd)
+      })).join('');
+      return fillTemplate(templates.turnGroup, {
+        turnId: escapeHtml(turnKey), title: escapeHtml(turnTitle), date: escapeHtml(formatActivityDate(turnRecords[turnRecords.length - 1].timestamp)), requests: String(turnRecords.length), plural: turnRecords.length === 1 ? '' : 's', cost: escapeHtml(formatMoney(turnCost)), rows: requestRows
+      });
+    }).join('');
+    return fillTemplate(templates.chatGroup, {
+      chatId: escapeHtml(key), title: escapeHtml(title), date: escapeHtml(chatDate), turns: String(turns.size), turnPlural: turns.size === 1 ? '' : 's', cost: escapeHtml(formatMoney(estimatedChatCost)), rows: turnGroups
+    });
+  }).join('');
+  const recentChats = chatGroups ? fillTemplate(templates.chatTable, { groups: chatGroups }) : empty('No chat data available.');
   const missingPricingNotice = missingPriceModels.length ? fillTemplate(templates.pricingNotice, { nonce, models: missingPriceModels.map(escapeHtml).join(', ') }) : '';
   return fillTemplate(templates.report, {
     nonce, missingPricingNotice,
     creditCards: [card('Estimated spend', formatMoney(totalUsd)), card('Credits', formatDecimal(totalCredits)), card('Requests', String(records.length)), card('Cost available', `${estimated.length} / ${billableRecords.length}`)].join(''),
-    dailySpend, modelBreakdown,
+    spendCharts: Object.entries(spendCharts).map(([group, chart]) => `<div class="spend-chart" data-spend-chart="${group}"${group === 'daily' ? '' : ' hidden'}>${chart}</div>`).join(''), modelBreakdown,
     tokenCards: [card('Requests', String(records.length)), card('Tokens recorded', `${tokenRecords} / ${records.length}`), card('Input tokens', tokenTotals.input.toLocaleString()), card('Output tokens', tokenTotals.output.toLocaleString()), card('Cached tokens', tokenTotals.cache.toLocaleString()), card('Cache-write tokens', tokenTotals.cacheWrite.toLocaleString())].join(''),
     tokenSummary: `Prompt: ${tokenTotals.prompt.toLocaleString()} | Fresh input: ${tokenTotals.input.toLocaleString()} | Output: ${tokenTotals.output.toLocaleString()} | Cached: ${tokenTotals.cache.toLocaleString()} | Cache write: ${tokenTotals.cacheWrite.toLocaleString()}`,
-    recentRequests
+    recentRequests, recentChats
   });
 }
 
@@ -427,6 +607,8 @@ function createNonce(): string {
 
 class UsageCollector implements vscode.Disposable {
   private readonly offsets = new Map<string, number>();
+  private readonly conversationIds = new Map<string, string>();
+  private readonly turnIds = new Map<string, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly seen = new Set<string>();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
@@ -467,15 +649,42 @@ class UsageCollector implements vscode.Disposable {
       try {
         const record = JSON.parse(line) as UsageRecord;
         let updated = record;
-        if (!record.requestType) {
-          updated = { ...record, requestType: classifyRequestType(record.feature) };
-          changed = true;
+        let recordChanged = false;
+        if (record.schemaId !== usageSchemaId) {
+          updated = { ...updated, schemaId: usageSchemaId };
+          recordChanged = true;
         }
-        if (updated.costUsd !== null) return changed ? JSON.stringify(updated) : line;
-        const usage = await readCopilotUsage(updated.requestId);
-        if (!usage) return changed ? JSON.stringify(updated) : line;
+        if (!record.requestType) {
+          updated = { ...updated, requestType: classifyRequestType(record.feature) };
+          recordChanged = true;
+        }
+        const request = await readCopilotRequest(updated.requestId);
+        if (!request) {
+          changed = changed || recordChanged;
+          return recordChanged ? JSON.stringify(updated) : line;
+        }
+        if (request.chatId && updated.chatId !== request.chatId) {
+          updated = { ...updated, chatId: request.chatId };
+          recordChanged = true;
+        }
+        if (request.turnId && updated.turnId !== request.turnId) {
+          updated = { ...updated, turnId: request.turnId };
+          recordChanged = true;
+        }
+        if (updated.requestType === 'utility' && updated.feature.toLowerCase() === 'title' && request.conversationTitle && updated.conversationTitle !== request.conversationTitle) {
+          updated = { ...updated, conversationTitle: request.conversationTitle };
+          recordChanged = true;
+        }
+        if (request.toolNames?.length && JSON.stringify(updated.toolNames) !== JSON.stringify(request.toolNames)) {
+          updated = { ...updated, toolNames: request.toolNames, toolCallCount: request.toolCallCount };
+          recordChanged = true;
+        }
+        if (updated.costUsd !== null || !request.usage) {
+          changed = changed || recordChanged;
+          return recordChanged ? JSON.stringify(updated) : line;
+        }
         changed = true;
-        return JSON.stringify(applyCopilotUsage(updated, usage));
+        return JSON.stringify({ ...applyCopilotUsage(updated, request.usage, request.chatId), schemaId: usageSchemaId });
       } catch {
         return line;
       }
@@ -534,6 +743,8 @@ class UsageCollector implements vscode.Disposable {
     } catch {
       this.seen.clear();
       this.offsets.clear();
+      this.conversationIds.clear();
+      this.turnIds.clear();
     }
   }
 
@@ -542,6 +753,7 @@ class UsageCollector implements vscode.Disposable {
     try {
       const stat = await fs.stat(sourceLog);
       const offset = this.offsets.get(sourceLog) ?? 0;
+      if (stat.size < offset) this.turnIds.delete(sourceLog);
       const buffer = await fs.readFile(sourceLog);
       const start = stat.size < offset ? 0 : offset;
       text = buffer.subarray(start).toString('utf8');
@@ -557,12 +769,21 @@ class UsageCollector implements vscode.Disposable {
       this.offsets.set(sourceLog, currentOffset - Buffer.byteLength(partialLine, 'utf8'));
     }
     for (const line of lines) {
-      const parsed = parseLine(line, sourceLog);
-      const usage = parsed ? await readCopilotUsage(parsed.requestId) : undefined;
-      const record = parsed && usage ? applyCopilotUsage(parsed, usage) : parsed;
-      if (record && !this.seen.has(record.requestId)) {
-        this.seen.add(record.requestId);
-        await this.append(record);
+      const conversationId = conversationIdFromLine(line);
+      if (conversationId) this.conversationIds.set(sourceLog, conversationId);
+      const turnId = turnIdFromLine(line);
+      if (turnId) this.turnIds.set(sourceLog, turnId);
+      const parsed = parseLine(line, sourceLog, this.conversationIds.get(sourceLog), this.turnIds.get(sourceLog));
+      const request = parsed ? await readCopilotRequest(parsed.requestId) : undefined;
+      const chatId = request?.chatId ?? parsed?.chatId;
+      const resolvedTurnId = request?.turnId ?? parsed?.turnId;
+      const record = parsed && request?.usage ? applyCopilotUsage(parsed, request.usage, chatId) : parsed;
+      const conversationTitle = parsed?.feature.toLowerCase() === 'title' ? request?.conversationTitle : undefined;
+      const toolMetadata = request?.toolNames?.length ? { toolNames: request.toolNames, toolCallCount: request.toolCallCount } : {};
+      const enrichedRecord = record ? { ...record, schemaId: usageSchemaId, ...(chatId ? { chatId } : {}), ...(resolvedTurnId ? { turnId: resolvedTurnId } : {}), ...(conversationTitle ? { conversationTitle } : {}), ...toolMetadata } : record;
+      if (enrichedRecord && !this.seen.has(enrichedRecord.requestId)) {
+        this.seen.add(enrichedRecord.requestId);
+        await this.append(enrichedRecord);
       }
     }
   }
