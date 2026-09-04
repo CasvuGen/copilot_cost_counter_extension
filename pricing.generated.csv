@@ -40,3 +40,8 @@ provider,model,tier,threshold,since,input,cachedInput,cacheWrite,output
 "xAI","Grok 4.6","Long context","> 200K","2026-09-03",4,1,"",12
 "Moonshot AI","Kimi K2.7 Code","Default","Not applicable","2026-09-03",0.95,0.19,"",4
 "Moonshot AI","Kimi K3","Default","Not applicable","2026-09-03",3,0.3,"",15
+"OpenAI","GPT-5.6 Sol","Default","≤ 272K","2026-09-04",4,0.4,5,20
+"OpenAI","GPT-5.6 Sol","Long context","> 272K","2026-09-04",8,0.8,10,30
+"Google","Gemini 3.6 Flash1","Default","Not applicable","2026-09-04",0.75,0.075,"",3.75
+"Google","Gemini 3.7 Flash1","Default","Not applicable","2026-09-04",0.75,0.075,"",3.75
+"Google","Gemini 3.8 Flash1","Default","Not applicable","2026-09-04",0.75,0.075,"",3.75

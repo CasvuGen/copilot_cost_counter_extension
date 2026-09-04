@@ -1,0 +1,6 @@
+<div class="notice" data-notice="pricing"><span>Missing token prices for {{models}}. Set input and output rates in
+        <code>copilotCostCounter.modelPricingOverrides</code> to calculate costs for new requests.</span><button
+        class="dismiss" aria-label="Dismiss">&times;</button>
+    <script
+        nonce="{{nonce}}">const notice = document.currentScript?.parentElement; if (notice && localStorage.getItem('copilotCostCounter.dismissedPricingNotice') === '1') notice.remove(); notice?.querySelector('.dismiss')?.addEventListener('click', () => localStorage.setItem('copilotCostCounter.dismissedPricingNotice', '1'));</script>
+</div>

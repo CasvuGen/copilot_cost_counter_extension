@@ -427,5 +427,57 @@
     "cachedInput": 0.3,
     "output": 15,
     "since": "2026-09-03"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Sol",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 4,
+    "cachedInput": 0.4,
+    "cacheWrite": 5,
+    "output": 20,
+    "since": "2026-09-04"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-5.6 Sol",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 8,
+    "cachedInput": 0.8,
+    "cacheWrite": 10,
+    "output": 30,
+    "since": "2026-09-04"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.6 Flash1",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.75,
+    "cachedInput": 0.075,
+    "output": 3.75,
+    "since": "2026-09-04"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.7 Flash1",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.75,
+    "cachedInput": 0.075,
+    "output": 3.75,
+    "since": "2026-09-04"
+  },
+  {
+    "provider": "Google",
+    "model": "Gemini 3.8 Flash1",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 0.75,
+    "cachedInput": 0.075,
+    "output": 3.75,
+    "since": "2026-09-04"
   }
 ]

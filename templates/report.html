@@ -1,0 +1,289 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{nonce}}';">
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 14px;
+            color: var(--vscode-foreground);
+            font-family: var(--vscode-font-family);
+            font-size: 12px;
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0;
+        }
+
+        h2 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin: 22px 0 10px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .subtle {
+            color: var(--vscode-descriptionForeground);
+            margin: 4px 0 16px;
+        }
+
+        button {
+            border: 0;
+            color: var(--vscode-button-foreground);
+            background: var(--vscode-button-background);
+            padding: 6px 9px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
+
+        .notice {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            border-left: 3px solid var(--vscode-descriptionForeground);
+            background: var(--vscode-textBlockQuote-background);
+            padding: 8px;
+            margin: 0 0 12px;
+        }
+
+        .notice>span {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .dismiss {
+            flex: 0 0 auto;
+            border: 0;
+            background: transparent;
+            color: var(--vscode-descriptionForeground);
+            padding: 0 2px;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .dismiss:hover {
+            color: var(--vscode-foreground);
+            background: transparent;
+        }
+
+        code {
+            font-family: var(--vscode-editor-font-family);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            margin: 4px 0 16px;
+        }
+
+        .mode {
+            border: 0;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            background: transparent;
+            color: var(--vscode-descriptionForeground);
+            padding: 7px 12px 6px;
+            margin-bottom: -1px;
+        }
+
+        .mode:hover {
+            color: var(--vscode-foreground);
+            background: var(--vscode-toolbar-hoverBackground);
+        }
+
+        .mode.active {
+            color: var(--vscode-foreground);
+            border-bottom-color: var(--vscode-focusBorder);
+            background: transparent;
+            font-weight: 600;
+        }
+
+        .mode-panel[hidden] {
+            display: none;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .card {
+            border: 1px solid var(--vscode-widget-border);
+            padding: 10px;
+            min-width: 0;
+        }
+
+        .card strong {
+            display: block;
+            font-size: 16px;
+            margin-top: 4px;
+            overflow-wrap: anywhere;
+        }
+
+        .card span {
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .chart {
+            height: 160px;
+            display: flex;
+            align-items: stretch;
+            gap: 5px;
+            border-bottom: 1px solid var(--vscode-widget-border);
+            padding: 8px 2px 0;
+        }
+
+        .bar-group {
+            position: relative;
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            min-width: 0;
+            padding-bottom: 28px;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 18px;
+            min-height: 4px;
+            background: var(--vscode-charts-blue);
+        }
+
+        .bar-group span {
+            position: absolute;
+            bottom: 5px;
+            width: 100%;
+            font-size: 9px;
+            color: var(--vscode-descriptionForeground);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .model-row {
+            margin: 9px 0;
+        }
+
+        .model-label {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .model-label span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .track {
+            height: 5px;
+            background: var(--vscode-editorWidget-background);
+            margin: 4px 0;
+        }
+
+        .fill {
+            height: 100%;
+            background: var(--vscode-charts-green);
+        }
+
+        small,
+        .muted {
+            color: var(--vscode-descriptionForeground);
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 6px 3px;
+            border-bottom: 1px solid var(--vscode-widget-border);
+        }
+
+        th {
+            color: var(--vscode-descriptionForeground);
+            font-weight: normal;
+        }
+
+        td:nth-child(1) {
+            white-space: nowrap;
+        }
+
+        .empty {
+            color: var(--vscode-descriptionForeground);
+            padding: 12px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Usage Report</h1>
+    <p class="subtle">Workspace-local Copilot activity</p>
+    {{missingPricingNotice}}
+    <div class="tabs" role="tablist">
+        <button class="mode active" role="tab" aria-selected="true" data-mode="credits">Credits</button>
+        <button class="mode" role="tab" aria-selected="false" data-mode="tokens">Tokens</button>
+    </div>
+    <section class="mode-panel" data-panel="credits">
+        <div class="cards">{{creditCards}}</div>
+        <h2>Daily spend</h2>
+        {{dailySpend}}
+        <h2>By model</h2>
+        {{modelBreakdown}}
+    </section>
+    <section class="mode-panel" data-panel="tokens" hidden>
+        <div class="cards">{{tokenCards}}</div>
+        <p class="subtle">{{tokenSummary}}</p>
+    </section>
+    <h2>Recent requests</h2>
+    {{recentRequests}}
+    <script nonce="{{nonce}}">
+        window.addEventListener('message', event => {
+            if (event.data?.type !== 'moneyBurn') return;
+            const burst = document.createElement('div');
+            const origin = ['top-left', 'top-right', 'bottom-left', 'bottom-right'].includes(event.data.origin) ? event.data.origin : 'bottom-right';
+            const offsets = { top: origin.startsWith('top'), left: origin.endsWith('left') };
+            burst.textContent = event.data.amount;
+            burst.style.cssText = 'position:fixed;' + (offsets.left ? 'left:18px;' : 'right:18px;') + (offsets.top ? 'top:18px;' : 'bottom:18px;') + 'z-index:10;color:var(--vscode-charts-red);font-size:' + Number(event.data.sizePx || 18) + 'px;font-weight:700;pointer-events:none;text-shadow:0 1px 2px var(--vscode-widget-shadow);';
+            document.body.appendChild(burst);
+            const animation = burst.animate([{ transform: 'translateY(0) scale(1)', opacity: 1 }, { transform: 'translateY(' + (offsets.top ? '48px' : '-48px') + ') scale(1.08)', opacity: 0 }], { duration: Number(event.data.durationMs || 900), easing: 'ease-out' });
+            animation.finished.then(() => burst.remove(), () => burst.remove());
+        });
+
+        const vscode = acquireVsCodeApi();
+        document.querySelectorAll('.dismiss').forEach(button => button.addEventListener('click', () => button.closest('.notice').remove()));
+        document.querySelectorAll('.mode').forEach(button => button.addEventListener('click', () => {
+            document.querySelectorAll('.mode').forEach(item => {
+                const active = item === button;
+                item.classList.toggle('active', active);
+                item.setAttribute('aria-selected', String(active));
+            });
+            document.querySelectorAll('.mode-panel').forEach(panel => panel.hidden = panel.dataset.panel !== button.dataset.mode);
+        }));
+    </script>
+</body>
+
+</html>

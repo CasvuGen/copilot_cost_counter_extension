@@ -54,6 +54,37 @@ type UsageRecord = {
 
 type ReportRecord = Pick<UsageRecord, 'timestamp' | 'requestId' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
 type CopilotUsage = { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number } };
+type ReportTemplates = {
+  report: string;
+  card: string;
+  dailyBar: string;
+  dailyChart: string;
+  modelRow: string;
+  recentRow: string;
+  recentTable: string;
+  pricingNotice: string;
+  empty: string;
+};
+
+function fillTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key] ?? '');
+}
+
+async function loadReportTemplates(extensionPath: string): Promise<ReportTemplates> {
+  const templatePath = (name: string) => path.join(extensionPath, 'templates', name);
+  const [report, card, dailyBar, dailyChart, modelRow, recentRow, recentTable, pricingNotice, empty] = await Promise.all([
+    fs.readFile(templatePath('report.html'), 'utf8'),
+    fs.readFile(templatePath('card.html'), 'utf8'),
+    fs.readFile(templatePath('daily-bar.html'), 'utf8'),
+    fs.readFile(templatePath('daily-chart.html'), 'utf8'),
+    fs.readFile(templatePath('model-row.html'), 'utf8'),
+    fs.readFile(templatePath('recent-row.html'), 'utf8'),
+    fs.readFile(templatePath('recent-table.html'), 'utf8'),
+    fs.readFile(templatePath('pricing-notice.html'), 'utf8'),
+    fs.readFile(templatePath('empty.html'), 'utf8')
+  ]);
+  return { report, card, dailyBar, dailyChart, modelRow, recentRow, recentTable, pricingNotice, empty };
+}
 
 function normalizeModel(model: string): string {
   return model.toLowerCase().replace(/\[[^\]]+\]/g, '').replace(/[^a-z0-9.]+/g, '-').replace(/^-|-$/g, '');
@@ -296,6 +327,8 @@ class UsageReportProvider implements vscode.WebviewViewProvider {
   private refreshLog: (() => Promise<void>) | undefined;
   private pendingMoneyBurnUsd = 0;
 
+  constructor(private readonly templates: ReportTemplates) {}
+
   setRefreshLog(refreshLog: () => Promise<void>): void {
     this.refreshLog = refreshLog;
   }
@@ -312,7 +345,7 @@ class UsageReportProvider implements vscode.WebviewViewProvider {
 
   async refresh(): Promise<void> {
     if (!this.view) return;
-    this.view.webview.html = renderReport(await readUsageRecords(), this.view.webview);
+    this.view.webview.html = renderReportFromTemplates(await readUsageRecords(), this.templates);
   }
 
   showMoneyBurn(costUsd: number | null): void {
@@ -336,25 +369,25 @@ class UsageReportProvider implements vscode.WebviewViewProvider {
   }
 }
 
-function renderReport(records: ReportRecord[], webview: vscode.Webview): string {
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+}
+
+function renderReportFromTemplates(records: ReportRecord[], templates: ReportTemplates): string {
   const nonce = createNonce();
   const billableRecords = records.filter(record => requestTypeOf(record) !== 'utility');
   const estimated = billableRecords.filter(record => record.costKind === 'estimated' && record.costUsd !== null);
   const totalUsd = estimated.reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
   const totalCredits = estimated.reduce((sum, record) => sum + (record.aiCredits ?? 0), 0);
   const tokenTotals = records.reduce((totals, record) => ({
-    prompt: totals.prompt + (record.promptTokens ?? 0),
-    input: totals.input + (record.freshInputTokens ?? 0),
-    output: totals.output + (record.outputTokens ?? 0),
-    cache: totals.cache + (record.cacheTokens ?? 0),
-    cacheWrite: totals.cacheWrite + (record.cacheWriteTokens ?? 0)
+    prompt: totals.prompt + (record.promptTokens ?? 0), input: totals.input + (record.freshInputTokens ?? 0), output: totals.output + (record.outputTokens ?? 0),
+    cache: totals.cache + (record.cacheTokens ?? 0), cacheWrite: totals.cacheWrite + (record.cacheWriteTokens ?? 0)
   }), { prompt: 0, input: 0, output: 0, cache: 0, cacheWrite: 0 });
   const tokenRecords = records.filter(record => record.promptTokens !== null || record.outputTokens !== null || record.cacheTokens !== null || record.cacheWriteTokens !== null).length;
-  const unavailableCount = 0;
   const missingPriceModels = [...new Set(billableRecords.filter(record => (record.promptTokens !== null || record.outputTokens !== null || record.cacheTokens !== null || record.cacheWriteTokens !== null) && (record.inputRateUsdPerMillion === null || record.outputRateUsdPerMillion === null)).map(record => record.model))];
   const byDay = new Map<string, number>();
   const byModel = new Map<string, { cost: number; requests: number }>();
-     for (const record of estimated) {
+  for (const record of estimated) {
     const day = record.timestamp.slice(0, 10) || 'Unknown';
     byDay.set(day, (byDay.get(day) ?? 0) + (record.costUsd ?? 0));
     const model = byModel.get(record.model) ?? { cost: 0, requests: 0 };
@@ -364,19 +397,28 @@ function renderReport(records: ReportRecord[], webview: vscode.Webview): string 
   }
   const maxDay = Math.max(...byDay.values(), 0.000001);
   const maxModel = Math.max(...[...byModel.values()].map(model => model.cost), 0.000001);
-  const dailyBars = [...byDay.entries()].slice(-14).map(([day, cost]) => `<div class="bar-group"><div class="bar" style="height:${Math.max(4, cost / maxDay * 100)}%" title="${escapeHtml(day)}: ${formatMoney(cost)}"></div><span>${escapeHtml(day.slice(5))}</span></div>`).join('');
-  const modelBars = [...byModel.entries()].sort((left, right) => right[1].cost - left[1].cost).slice(0, 6).map(([model, value]) => `<div class="model-row"><div class="model-label"><span>${escapeHtml(model)}</span><strong>${formatMoney(value.cost)}</strong></div><div class="track"><div class="fill" style="width:${value.cost / maxModel * 100}%"></div></div><small>${value.requests} request${value.requests === 1 ? '' : 's'}</small></div>`).join('');
-  const recent = records.slice(-8).reverse().map(record => `<tr style="${requestTypeOf(record) === 'utility' ? 'opacity:.55' : ''}"><td>${escapeHtml(record.timestamp.replace('T', ' ').slice(0, 16))}</td><td>${escapeHtml(record.model)}<br><small>${escapeHtml(requestTypeLabel(record))}</small></td><td>${record.costUsd === null ? formatUnavailable(record) : formatRecentMoney(record.costUsd)}</td><td>${record.aiCredits === null ? formatUnavailable(record) : formatDecimal(record.aiCredits)}</td></tr>`).join('');
-  const creditCards = `<div class="card"><span>Estimated spend</span><strong>${formatMoney(totalUsd)}</strong></div><div class="card"><span>Credits</span><strong>${formatDecimal(totalCredits)}</strong></div><div class="card"><span>Requests</span><strong>${records.length}</strong></div><div class="card"><span>Cost available</span><strong>${estimated.length} / ${billableRecords.length}</strong></div><script nonce="${nonce}">window.addEventListener('message',event=>{if(event.data?.type!=='moneyBurn')return;const burst=document.createElement('div');const origin=event.data.origin==='top-left'||event.data.origin==='top-right'||event.data.origin==='bottom-left'||event.data.origin==='bottom-right'?event.data.origin:'bottom-right';const offsets={top:origin.startsWith('top'),left:origin.endsWith('left')};burst.textContent=event.data.amount;burst.style.cssText='position:fixed;'+(offsets.left?'left:18px;':'right:18px;')+(offsets.top?'top:18px;':'bottom:18px;')+'z-index:10;color:var(--vscode-charts-red);font-size:'+Number(event.data.sizePx||18)+'px;font-weight:700;pointer-events:none;text-shadow:0 1px 2px var(--vscode-widget-shadow);';document.body.appendChild(burst);const animation=burst.animate([{transform:'translateY(0) scale(1)',opacity:1},{transform:'translateY('+(offsets.top?'48px':'-48px')+') scale(1.08)',opacity:0}],{duration:Number(event.data.durationMs||900),easing:'ease-out'});animation.finished.then(()=>burst.remove(),()=>burst.remove());});</script>`;
-  const tokenCards = `<div class="card"><span>Requests</span><strong>${records.length}</strong></div><div class="card"><span>Tokens recorded</span><strong>${tokenRecords} / ${records.length}</strong></div><div class="card"><span>Input tokens</span><strong>${tokenTotals.input.toLocaleString()}</strong></div><div class="card"><span>Output tokens</span><strong>${tokenTotals.output.toLocaleString()}</strong></div><div class="card"><span>Cached tokens</span><strong>${tokenTotals.cache.toLocaleString()}</strong></div><div class="card"><span>Cache-write tokens</span><strong>${tokenTotals.cacheWrite.toLocaleString()}</strong></div>`;
-  const missingPricingNotice = missingPriceModels.length ? `<div class="notice" data-notice="pricing"><span>Missing token prices for ${missingPriceModels.map(escapeHtml).join(', ')}. Set input and output rates in <code>copilotCostCounter.modelPricingOverrides</code> to calculate costs for new requests.</span><button class="dismiss" aria-label="Dismiss">&times;</button><script nonce="${nonce}">const notice=document.currentScript?.parentElement;if(notice&&localStorage.getItem('copilotCostCounter.dismissedPricingNotice')==='1')notice.remove();notice?.querySelector('.dismiss')?.addEventListener('click',()=>localStorage.setItem('copilotCostCounter.dismissedPricingNotice','1'));</script></div>` : '';
-  return `<!doctype html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';"><style>
-    :root { color-scheme: light dark; } * { box-sizing: border-box; } body { padding: 14px; color: var(--vscode-foreground); font-family: var(--vscode-font-family); font-size: 12px; } h1 { font-size: 18px; margin: 0; } h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 22px 0 10px; color: var(--vscode-descriptionForeground); } .subtle { color: var(--vscode-descriptionForeground); margin: 4px 0 16px; } .actions { display: flex; gap: 6px; margin-bottom: 14px; } button { border: 0; color: var(--vscode-button-foreground); background: var(--vscode-button-background); padding: 6px 9px; cursor: pointer; } button:hover { background: var(--vscode-button-hoverBackground); } .notice { display: flex; align-items: flex-start; gap: 8px; border-left: 3px solid var(--vscode-descriptionForeground); background: var(--vscode-textBlockQuote-background); padding: 8px; margin: 0 0 12px; } .notice > span { flex: 1; min-width: 0; } .dismiss { flex: 0 0 auto; border: 0; background: transparent; color: var(--vscode-descriptionForeground); padding: 0 2px; font-size: 16px; line-height: 1; } .dismiss:hover { color: var(--vscode-foreground); background: transparent; } code { font-family: var(--vscode-editor-font-family); } .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--vscode-panel-border); margin: 4px 0 16px; } .mode { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--vscode-descriptionForeground); padding: 7px 12px 6px; margin-bottom: -1px; } .mode:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); } .mode.active { color: var(--vscode-foreground); border-bottom-color: var(--vscode-focusBorder); background: transparent; font-weight: 600; } .mode-panel[hidden] { display: none; } .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .card { border: 1px solid var(--vscode-widget-border); padding: 10px; min-width: 0; } .card strong { display: block; font-size: 16px; margin-top: 4px; overflow-wrap: anywhere; } .card span { color: var(--vscode-descriptionForeground); } .chart { height: 160px; display: flex; align-items: stretch; gap: 5px; border-bottom: 1px solid var(--vscode-widget-border); padding: 8px 2px 0; } .bar-group { position: relative; flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 0; padding-bottom: 28px; } .bar { width: 100%; max-width: 18px; min-height: 4px; background: var(--vscode-charts-blue); } .bar-group span { position: absolute; bottom: 5px; width: 100%; font-size: 9px; color: var(--vscode-descriptionForeground); text-align: center; white-space: nowrap; } .model-row { margin: 9px 0; } .model-label { display: flex; justify-content: space-between; gap: 8px; } .model-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .track { height: 5px; background: var(--vscode-editorWidget-background); margin: 4px 0; } .fill { height: 100%; background: var(--vscode-charts-green); } small, .muted { color: var(--vscode-descriptionForeground); } table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 6px 3px; border-bottom: 1px solid var(--vscode-widget-border); } th { color: var(--vscode-descriptionForeground); font-weight: normal; } td:nth-child(1) { white-space: nowrap; } .empty { color: var(--vscode-descriptionForeground); padding: 12px 0; }
-  </style></head><body><h1>Usage Report</h1><p class="subtle">Workspace-local Copilot activity</p><div class="actions"><button id="refresh">Refresh</button><button id="open">Open JSONL</button></div>${missingPricingNotice}${unavailableCount ? '<div class="notice" data-notice="unavailable"><span>Token usage is not present in the Copilot log, so costs are unavailable. Request counts are still recorded.</span><button class="dismiss" aria-label="Dismiss">&times;</button></div>' : ''}<div class="tabs" role="tablist"><button class="mode active" role="tab" aria-selected="true" data-mode="credits">Credits</button><button class="mode" role="tab" aria-selected="false" data-mode="tokens">Tokens</button></div><section class="mode-panel" data-panel="credits"><div class="cards">${creditCards}</div><h2>Daily spend</h2>${dailyBars ? `<div class="chart">${dailyBars}</div>` : '<div class="empty">No estimated cost data yet.</div>'}<h2>By model</h2>${modelBars || '<div class="empty">No model cost data yet.</div>'}</section><section class="mode-panel" data-panel="tokens" hidden><div class="cards">${tokenCards}</div><p class="subtle">Prompt: ${tokenTotals.prompt.toLocaleString()} | Fresh input: ${tokenTotals.input.toLocaleString()} | Output: ${tokenTotals.output.toLocaleString()} | Cached: ${tokenTotals.cache.toLocaleString()} | Cache write: ${tokenTotals.cacheWrite.toLocaleString()}</p></section><h2>Recent requests</h2>${recent ? `<table><thead><tr><th>Time</th><th>Model</th><th>Cost</th><th>Credits</th></tr></thead><tbody>${recent}</tbody></table>` : '<div class="empty">No usage records yet.</div>'}<script nonce="${nonce}">const vscode=acquireVsCodeApi();document.getElementById('refresh').addEventListener('click',()=>vscode.postMessage({type:'refresh'}));document.getElementById('open').addEventListener('click',()=>vscode.postMessage({type:'openUsage'}));document.querySelectorAll('.dismiss').forEach(button=>button.addEventListener('click',()=>button.closest('.notice').remove()));document.querySelectorAll('.mode').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.mode').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));});document.querySelectorAll('.mode-panel').forEach(panel=>panel.hidden=panel.dataset.panel!==button.dataset.mode)}));</script></body></html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+  const empty = (message: string) => fillTemplate(templates.empty, { message: escapeHtml(message) });
+  const card = (label: string, value: string) => fillTemplate(templates.card, { label: escapeHtml(label), value: escapeHtml(value) });
+  const dailySpend = byDay.size ? fillTemplate(templates.dailyChart, { bars: [...byDay.entries()].slice(-14).map(([day, cost]) => fillTemplate(templates.dailyBar, {
+    height: String(Math.max(4, cost / maxDay * 100)), title: escapeHtml(`${day}: ${formatMoney(cost)}`), day: escapeHtml(day.slice(5))
+  })).join('') }) : empty('No estimated cost data yet.');
+  const modelBreakdown = byModel.size ? [...byModel.entries()].sort((left, right) => right[1].cost - left[1].cost).slice(0, 6).map(([model, value]) => fillTemplate(templates.modelRow, {
+    model: escapeHtml(model), cost: escapeHtml(formatMoney(value.cost)), width: String(value.cost / maxModel * 100), requests: String(value.requests), plural: value.requests === 1 ? '' : 's'
+  })).join('') : empty('No model cost data yet.');
+  const rows = records.slice(-8).reverse().map(record => fillTemplate(templates.recentRow, {
+    style: requestTypeOf(record) === 'utility' ? 'opacity:.55' : '', timestamp: escapeHtml(record.timestamp.replace('T', ' ').slice(0, 16)), model: escapeHtml(record.model),
+    requestType: escapeHtml(requestTypeLabel(record)), cost: record.costUsd === null ? formatUnavailable(record) : formatRecentMoney(record.costUsd), credits: record.aiCredits === null ? formatUnavailable(record) : formatDecimal(record.aiCredits)
+  })).join('');
+  const recentRequests = rows ? fillTemplate(templates.recentTable, { rows }) : empty('No usage records yet.');
+  const missingPricingNotice = missingPriceModels.length ? fillTemplate(templates.pricingNotice, { nonce, models: missingPriceModels.map(escapeHtml).join(', ') }) : '';
+  return fillTemplate(templates.report, {
+    nonce, missingPricingNotice,
+    creditCards: [card('Estimated spend', formatMoney(totalUsd)), card('Credits', formatDecimal(totalCredits)), card('Requests', String(records.length)), card('Cost available', `${estimated.length} / ${billableRecords.length}`)].join(''),
+    dailySpend, modelBreakdown,
+    tokenCards: [card('Requests', String(records.length)), card('Tokens recorded', `${tokenRecords} / ${records.length}`), card('Input tokens', tokenTotals.input.toLocaleString()), card('Output tokens', tokenTotals.output.toLocaleString()), card('Cached tokens', tokenTotals.cache.toLocaleString()), card('Cache-write tokens', tokenTotals.cacheWrite.toLocaleString())].join(''),
+    tokenSummary: `Prompt: ${tokenTotals.prompt.toLocaleString()} | Fresh input: ${tokenTotals.input.toLocaleString()} | Output: ${tokenTotals.output.toLocaleString()} | Cached: ${tokenTotals.cache.toLocaleString()} | Cache write: ${tokenTotals.cacheWrite.toLocaleString()}`,
+    recentRequests
+  });
 }
 
 function createNonce(): string {
@@ -542,7 +584,7 @@ class UsageCollector implements vscode.Disposable {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const report = new UsageReportProvider();
+  const report = new UsageReportProvider(await loadReportTemplates(context.extensionUri.fsPath));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider('copilotCostCounter.report', report));
   const collector = new UsageCollector(context, async record => {
     await report.refresh();

@@ -1,6 +1,6 @@
 # Copilot Cost Counter
 
-**Version:** 0.1.24
+**Version:** 0.1.27
 
 A standalone VS Code companion extension that records completed GitHub Copilot requests from a Copilot output log and writes workspace-local usage summaries.
 
@@ -117,5 +117,7 @@ Run the TypeScript compiler without creating a VSIX:
 ```sh
 npm run compile
 ```
+
+The Usage Report markup is kept in `templates/report.html` and its reusable fragments are in the same directory. Edit those HTML files to change the report layout, styles, labels, or client-side interactions; TypeScript supplies the calculated values.
 
 To run the extension under the VS Code Extension Development Host, open this directory in VS Code and press `F5`.
