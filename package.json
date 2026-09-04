@@ -2,7 +2,7 @@
   "name": "copilot-cost-counter",
   "displayName": "Copilot Cost Counter",
   "description": "Record Copilot request usage and cost summaries from its output log.",
-  "version": "0.2.37",
+  "version": "0.2.38",
   "publisher": "local",
   "license": "MIT",
   "engines": {

@@ -423,7 +423,8 @@ async function readCopilotRequest(requestId: string): Promise<CopilotRequest | u
     const value = JSON.parse(document.getText()) as Record<string, unknown>;
     const metadata = (value.metadata ?? {}) as Record<string, unknown>;
     const usage = (metadata.usage ?? value.usage) as CopilotUsage | undefined;
-    const chatId = findStringByKey(value, new Set(['conversationid', 'chatid', 'sessionid']));
+    const chatId = findStringByKey(value, new Set(['conversationid', 'chatid']))
+      ?? findStringByKey(value, new Set(['sessionid']));
     const turnId = findStringByKey(value, new Set(['turnid', 'turn_id', 'userturnid']));
     const conversationTitle = conversationTitleFromValue(value);
     const toolUsage = toolUsageFromValue(value);
@@ -607,8 +608,6 @@ function createNonce(): string {
 
 class UsageCollector implements vscode.Disposable {
   private readonly offsets = new Map<string, number>();
-  private readonly conversationIds = new Map<string, string>();
-  private readonly turnIds = new Map<string, string>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly seen = new Set<string>();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
@@ -743,8 +742,6 @@ class UsageCollector implements vscode.Disposable {
     } catch {
       this.seen.clear();
       this.offsets.clear();
-      this.conversationIds.clear();
-      this.turnIds.clear();
     }
   }
 
@@ -753,7 +750,6 @@ class UsageCollector implements vscode.Disposable {
     try {
       const stat = await fs.stat(sourceLog);
       const offset = this.offsets.get(sourceLog) ?? 0;
-      if (stat.size < offset) this.turnIds.delete(sourceLog);
       const buffer = await fs.readFile(sourceLog);
       const start = stat.size < offset ? 0 : offset;
       text = buffer.subarray(start).toString('utf8');
@@ -769,11 +765,7 @@ class UsageCollector implements vscode.Disposable {
       this.offsets.set(sourceLog, currentOffset - Buffer.byteLength(partialLine, 'utf8'));
     }
     for (const line of lines) {
-      const conversationId = conversationIdFromLine(line);
-      if (conversationId) this.conversationIds.set(sourceLog, conversationId);
-      const turnId = turnIdFromLine(line);
-      if (turnId) this.turnIds.set(sourceLog, turnId);
-      const parsed = parseLine(line, sourceLog, this.conversationIds.get(sourceLog), this.turnIds.get(sourceLog));
+      const parsed = parseLine(line, sourceLog, conversationIdFromLine(line), turnIdFromLine(line));
       const request = parsed ? await readCopilotRequest(parsed.requestId) : undefined;
       const chatId = request?.chatId ?? parsed?.chatId;
       const resolvedTurnId = request?.turnId ?? parsed?.turnId;
