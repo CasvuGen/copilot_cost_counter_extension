@@ -5,7 +5,8 @@ import generatedPricing from './pricing.generated.json';
 
 const usageDirectory = '.copilot';
 const usageFileName = 'usage.jsonl';
-const usageSchemaId = 4;
+const chatMetadataFileName = 'chats.json';
+const usageSchemaId = 6;
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
 
 type ModelPricing = { input: number; cachedInput?: number; cacheWrite?: number; output: number };
@@ -57,6 +58,14 @@ type UsageRecord = {
   pricingSource: string;
   pricingUpdatedAt: string | null;
   costKind: 'estimated' | 'unavailable';
+};
+
+type ChatMetadata = {
+  chatId: string;
+  title?: string;
+  turnIds: string[];
+  firstSeen: string;
+  lastSeen: string;
 };
 
 type ReportRecord = Pick<UsageRecord, 'schemaId' | 'timestamp' | 'requestId' | 'chatId' | 'turnId' | 'conversationTitle' | 'toolNames' | 'toolCallCount' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
@@ -192,7 +201,7 @@ function classifyRequestType(feature: string): RequestType {
   const normalized = feature.toLowerCase();
   if (/next.?edit|\bnes\b/.test(normalized)) return 'nextEditSuggestion';
   if (/inline|completion/.test(normalized)) return 'completion';
-  if (/progressmessages|copilotlanguagemodelwrapper|backgroundtodo|tool|summarizeconversation|xtabprovider|healapplypatch|title/.test(normalized)) return 'utility';
+  if (/progressmessages|copilotlanguagemodelwrapper|tool|summarizeconversation|xtabprovider|healapplypatch|title/.test(normalized)) return 'utility';
   return 'chat';
 }
 
@@ -423,8 +432,7 @@ async function readCopilotRequest(requestId: string): Promise<CopilotRequest | u
     const value = JSON.parse(document.getText()) as Record<string, unknown>;
     const metadata = (value.metadata ?? {}) as Record<string, unknown>;
     const usage = (metadata.usage ?? value.usage) as CopilotUsage | undefined;
-    const chatId = findStringByKey(value, new Set(['conversationid', 'chatid']))
-      ?? findStringByKey(value, new Set(['sessionid']));
+    const chatId = findStringByKey(value, new Set(['conversationid', 'chatid']));
     const turnId = findStringByKey(value, new Set(['turnid', 'turn_id', 'userturnid']));
     const conversationTitle = conversationTitleFromValue(value);
     const toolUsage = toolUsageFromValue(value);
@@ -452,6 +460,40 @@ async function readUsageRecords(): Promise<ReportRecord[]> {
   }
 }
 
+async function readChatMetadata(): Promise<ChatMetadata[]> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) return [];
+  try {
+    const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, chatMetadataFileName), 'utf8');
+    const value = JSON.parse(content) as unknown;
+    if (!Array.isArray(value)) return [];
+    return value.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string');
+  } catch {
+    return [];
+  }
+}
+
+async function updateChatMetadata(record: UsageRecord): Promise<void> {
+  if (!record.chatId) return;
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) return;
+  const metadataPath = path.join(folder.uri.fsPath, usageDirectory, chatMetadataFileName);
+  const chats = await readChatMetadata();
+  const existing = chats.find(chat => chat.chatId === record.chatId);
+  const turnIds = new Set(existing?.turnIds ?? []);
+  if (requestTypeOf(record) === 'chat' && record.turnId) turnIds.add(record.turnId);
+  const metadata: ChatMetadata = {
+    chatId: record.chatId,
+    ...(record.conversationTitle ?? existing?.title ? { title: record.conversationTitle ?? existing?.title } : {}),
+    turnIds: [...turnIds],
+    firstSeen: existing?.firstSeen ?? record.timestamp,
+    lastSeen: record.timestamp
+  };
+  const next = [...chats.filter(chat => chat.chatId !== record.chatId), metadata];
+  await fs.mkdir(path.dirname(metadataPath), { recursive: true });
+  await fs.writeFile(metadataPath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+}
+
 class UsageReportProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
   private refreshLog: (() => Promise<void>) | undefined;
@@ -475,7 +517,7 @@ class UsageReportProvider implements vscode.WebviewViewProvider {
 
   async refresh(): Promise<void> {
     if (!this.view) return;
-    this.view.webview.html = renderReportFromTemplates(await readUsageRecords(), this.templates);
+    this.view.webview.html = renderReportFromTemplates(await readUsageRecords(), await readChatMetadata(), this.templates);
   }
 
   showMoneyBurn(costUsd: number | null): void {
@@ -503,7 +545,7 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
 }
 
-function renderReportFromTemplates(records: ReportRecord[], templates: ReportTemplates): string {
+function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMetadata[], templates: ReportTemplates): string {
   const nonce = createNonce();
   const billableRecords = records.filter(record => requestTypeOf(record) !== 'utility');
   const estimated = billableRecords.filter(record => record.costKind === 'estimated' && record.costUsd !== null);
@@ -520,6 +562,9 @@ function renderReportFromTemplates(records: ReportRecord[], templates: ReportTem
   const byFeature = new Map<string, number>();
   const byModel = new Map<string, { cost: number; requests: number }>();
   const conversationTitles = new Map<string, string>();
+  for (const chat of chatMetadata) {
+    if (chat.title) conversationTitles.set(chat.chatId, chat.title);
+  }
   for (const record of records) {
     if (record.chatId && record.conversationTitle && !conversationTitles.has(record.chatId)) conversationTitles.set(record.chatId, record.conversationTitle);
   }
@@ -557,7 +602,7 @@ function renderReportFromTemplates(records: ReportRecord[], templates: ReportTem
   })).join('');
   const recentRequests = rows ? fillTemplate(templates.recentTable, { rows }) : empty('No usage records yet.');
   const chats = new Map<string, ReportRecord[]>();
-  for (const record of records) {
+  for (const record of records.filter(record => requestTypeOf(record) === 'chat')) {
     const key = record.chatId ?? 'unavailable';
     const group = chats.get(key) ?? [];
     group.push(record);
@@ -649,12 +694,18 @@ class UsageCollector implements vscode.Disposable {
         const record = JSON.parse(line) as UsageRecord;
         let updated = record;
         let recordChanged = false;
+        const legacySchema = typeof record.schemaId !== 'number' || record.schemaId < usageSchemaId;
         if (record.schemaId !== usageSchemaId) {
           updated = { ...updated, schemaId: usageSchemaId };
           recordChanged = true;
         }
-        if (!record.requestType) {
-          updated = { ...updated, requestType: classifyRequestType(record.feature) };
+        if (legacySchema && (updated.chatId || updated.turnId)) {
+          updated = { ...updated, chatId: undefined, turnId: undefined };
+          recordChanged = true;
+        }
+        const inferredRequestType = classifyRequestType(record.feature);
+        if (record.requestType !== inferredRequestType) {
+          updated = { ...updated, requestType: inferredRequestType };
           recordChanged = true;
         }
         const request = await readCopilotRequest(updated.requestId);
@@ -786,6 +837,7 @@ class UsageCollector implements vscode.Disposable {
     const output = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
     await fs.mkdir(path.dirname(output), { recursive: true });
     await fs.appendFile(output, `${JSON.stringify(record)}\n`, 'utf8');
+    await updateChatMetadata(record);
     await this.onRecord(record);
     this.status.text = record.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(record.costUsd)}`;
   }

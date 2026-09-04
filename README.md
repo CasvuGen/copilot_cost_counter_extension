@@ -1,6 +1,6 @@
 # Copilot Cost Counter
 
-**Version:** 0.2.38
+**Version:** 0.2.39
 
 A standalone VS Code companion extension that records completed GitHub Copilot requests from a Copilot output log and writes workspace-local usage summaries.
 
@@ -46,7 +46,7 @@ After installation, select the **Copilot Cost Counter** graph icon in the Activi
 
 Use **Refresh** in the report when needed. The report also refreshes when the extension appends a new request. Values are calculated only from records written to the current workspace’s `.copilot/usage.jsonl`. When a `ccreq` document contains `usage.copilot_usage.total_nano_aiu`, that Copilot-reported AI-credit total is authoritative, including an explicit zero; token-price calculations are used only as a fallback when the AIU total is absent.
 
-Use the **Credits** and **Tokens** tabs to switch between dollar/AI-credit totals and token totals. The **Spend** selector switches the chart among daily activity, the highest-cost conversations, and the highest-cost Copilot features; its selection persists when new data refreshes the report. The lower **Activity** section has **Recent requests** and **Chats** tabs. Chats are grouped as conversation, turn, and individual request when Copilot exposes the corresponding metadata. Older records without chat metadata are grouped together as `Older requests without chat metadata`; the extension cannot open a private Copilot chat panel directly through the public VS Code API. The selected tabs persist when new data refreshes the report.
+Use the **Credits** and **Tokens** tabs to switch between dollar/AI-credit totals and token totals. The **Spend** selector switches the chart among daily activity, the highest-cost conversations, and the highest-cost Copilot features; its selection persists when new data refreshes the report. The lower **Activity** section has **Recent requests** and **Chats** tabs. Chats include regular chat orchestration such as `backgroundTodoAgent`; completions, next-edit suggestions such as `copilot-nes-lysithea-24`, and utility requests such as `XtabProvider` are excluded. Chat requests are grouped as conversation, turn, and individual request when Copilot exposes explicit conversation and turn metadata. Generic session IDs are not used as conversation IDs because they can span multiple chats. Chat titles and observed turn IDs are maintained separately in `.copilot/chats.json`; usage and cost records remain in `.copilot/usage.jsonl`. Older records without reliable chat metadata are grouped together as `Older requests without chat metadata`; the extension cannot open a private Copilot chat panel directly through the public VS Code API. The selected tabs persist when new data refreshes the report.
 
 When token counts are present but a model has no input or output rate, the report shows a gray warning naming the model and points to `copilotCostCounter.modelPricingOverrides`.
 
@@ -67,7 +67,7 @@ npm run fetch-pricing
 
 ## Recorded Data And Limits
 
-Records contain a numeric `schemaId`, timestamp, request ID, optional chat/session and turn IDs, an optional conversation title from the first `title` utility request, model, raw feature, derived request type, duration, token counts when present in the log, tool names and call count when available, pricing rates, USD costs, and AI-credit costs. New records use schema `4`; records without a schema ID are treated as schema `1` and upgraded during reconciliation. Request types are `chat`, `completion`, `nextEditSuggestion`, and `utility`. The type is inferred from Copilot's feature label; older JSONL records without `requestType` are classified during reconciliation. Tool arguments and prompt/response content are deliberately not persisted because they may contain private workspace data. The `requestId`, `ourRequestId`, and `serverRequestId` values in a `ccreq` document identify the individual request, not the surrounding chat session.
+Records contain a numeric `schemaId`, timestamp, request ID, optional explicit chat and turn IDs, an optional conversation title from the first `title` utility request, model, raw feature, derived request type, duration, token counts when present in the log, tool names and call count when available, pricing rates, USD costs, and AI-credit costs. New records use schema `6`; records without a schema ID are treated as schema `1` and upgraded during reconciliation. Request types are `chat`, `completion`, `nextEditSuggestion`, and `utility`. The type is inferred from Copilot's feature label; stored records are reclassified during reconciliation when the classifier changes. Tool arguments and prompt/response content are deliberately not persisted because they may contain private workspace data. The `requestId`, `ourRequestId`, and `serverRequestId` values in a `ccreq` document identify the individual request, not the surrounding chat session.
 
 A companion extension cannot access Copilot’s private in-memory telemetry through the public VS Code extension API. Exact per-request billing requires Copilot to emit token usage in the log or expose it through a supported API.
 
