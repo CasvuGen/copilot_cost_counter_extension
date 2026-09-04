@@ -5,7 +5,8 @@ import generatedPricing from './pricing.generated.json';
 
 const usageDirectory = '.copilot';
 const usageFileName = 'usage.jsonl';
-const chatMetadataFileName = 'chats.json';
+const usageMetadataFileName = 'usage_metadata.json';
+const usageMetadataSchemaId = 2;
 const usageSchemaId = 6;
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
 
@@ -63,12 +64,13 @@ type UsageRecord = {
 type ChatMetadata = {
   chatId: string;
   title?: string;
+  titleHistory?: { title: string; observedAt: string }[];
   turnIds: string[];
   firstSeen: string;
   lastSeen: string;
 };
 
-type ReportRecord = Pick<UsageRecord, 'schemaId' | 'timestamp' | 'requestId' | 'chatId' | 'turnId' | 'conversationTitle' | 'toolNames' | 'toolCallCount' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
+type ReportRecord = Pick<UsageRecord, 'schemaId' | 'timestamp' | 'sourceLog' | 'requestId' | 'chatId' | 'turnId' | 'conversationTitle' | 'toolNames' | 'toolCallCount' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
 type CopilotUsage = {
   prompt_tokens?: number;
   completion_tokens?: number;
@@ -255,6 +257,10 @@ function formatActivityDate(timestamp: string): string {
   return timestamp.replace('T', ' ').slice(0, 16);
 }
 
+function isUsableConversationTitle(title: string | undefined): title is string {
+  return Boolean(title && title.trim() && !/^sorry,?\s+i can't assist with that\.?$/i.test(title.trim()));
+}
+
 function formatToolUsage(record: Pick<ReportRecord, 'toolNames' | 'toolCallCount'>): string {
   if (!record.toolCallCount) return '';
   const names = record.toolNames?.length ? `: ${record.toolNames.join(', ')}` : '';
@@ -316,8 +322,28 @@ function conversationIdFromLine(line: string): string | undefined {
 }
 
 function turnIdFromLine(line: string): string | undefined {
-  const match = line.match(/(?:turn(?:Id|_id)?|userTurnId)[\s:=]+([0-9a-f]{8}-[0-9a-f-]{27,})/i);
+  const match = line.match(/(?:turn(?:Id|_id)?|userTurnId|turn)[\s:=]+(request_[0-9a-f-]{36}|[0-9a-f]{8}-[0-9a-f-]{27,})/i);
   return match?.[1];
+}
+
+function newConversationIdFromLine(line: string): string | undefined {
+  const match = line.match(/\[ChatWebSocketManager\]\s+New request for conversation\s+([0-9a-f-]{36})\s+turn\s+request_[0-9a-f-]{36}\s+\(previous turn:\s+undefined\)/i);
+  return match?.[1];
+}
+
+function voiceProgressRequestIdFromLine(line: string): string | undefined {
+  const match = line.match(/\[VoiceProgress\]\s+fallback\s+request=(request_[0-9a-f-]{36})/i);
+  return match?.[1];
+}
+
+function websocketResponseDurationFromLine(line: string): number | undefined {
+  const match = line.match(/request\.response:\s+\[websocket\],\s+took\s+(\d+)\s+ms/i);
+  return match ? Number(match[1]) : undefined;
+}
+
+function timestampFromLine(line: string): number | undefined {
+  const timestamp = Date.parse(line.slice(0, 23).replace(' ', 'T'));
+  return Number.isFinite(timestamp) ? timestamp : undefined;
 }
 
 function parseLine(line: string, sourceLog: string, chatId?: string, turnId?: string): UsageRecord | undefined {
@@ -464,10 +490,10 @@ async function readChatMetadata(): Promise<ChatMetadata[]> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) return [];
   try {
-    const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, chatMetadataFileName), 'utf8');
-    const value = JSON.parse(content) as unknown;
-    if (!Array.isArray(value)) return [];
-    return value.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string');
+    const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName), 'utf8');
+    const value = JSON.parse(content) as { schemaId?: unknown; chats?: unknown };
+    if ((value.schemaId !== 1 && value.schemaId !== usageMetadataSchemaId) || !Array.isArray(value.chats)) return [];
+    return value.chats.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string');
   } catch {
     return [];
   }
@@ -477,7 +503,7 @@ async function updateChatMetadata(record: UsageRecord): Promise<void> {
   if (!record.chatId) return;
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) return;
-  const metadataPath = path.join(folder.uri.fsPath, usageDirectory, chatMetadataFileName);
+  const metadataPath = path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName);
   const chats = await readChatMetadata();
   const existing = chats.find(chat => chat.chatId === record.chatId);
   const turnIds = new Set(existing?.turnIds ?? []);
@@ -485,13 +511,14 @@ async function updateChatMetadata(record: UsageRecord): Promise<void> {
   const metadata: ChatMetadata = {
     chatId: record.chatId,
     ...(record.conversationTitle ?? existing?.title ? { title: record.conversationTitle ?? existing?.title } : {}),
+    ...(existing?.titleHistory ? { titleHistory: existing.titleHistory } : {}),
     turnIds: [...turnIds],
     firstSeen: existing?.firstSeen ?? record.timestamp,
     lastSeen: record.timestamp
   };
   const next = [...chats.filter(chat => chat.chatId !== record.chatId), metadata];
   await fs.mkdir(path.dirname(metadataPath), { recursive: true });
-  await fs.writeFile(metadataPath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: next }, null, 2)}\n`, 'utf8');
 }
 
 class UsageReportProvider implements vscode.WebviewViewProvider {
@@ -602,8 +629,8 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
   })).join('');
   const recentRequests = rows ? fillTemplate(templates.recentTable, { rows }) : empty('No usage records yet.');
   const chats = new Map<string, ReportRecord[]>();
-  for (const record of records.filter(record => requestTypeOf(record) === 'chat')) {
-    const key = record.chatId ?? 'unavailable';
+  for (const record of records.filter(record => requestTypeOf(record) === 'chat' && record.chatId)) {
+    const key = record.chatId as string;
     const group = chats.get(key) ?? [];
     group.push(record);
     chats.set(key, group);
@@ -635,7 +662,7 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
       chatId: escapeHtml(key), title: escapeHtml(title), date: escapeHtml(chatDate), turns: String(turns.size), turnPlural: turns.size === 1 ? '' : 's', cost: escapeHtml(formatMoney(estimatedChatCost)), rows: turnGroups
     });
   }).join('');
-  const recentChats = chatGroups ? fillTemplate(templates.chatTable, { groups: chatGroups }) : empty('No chat data available.');
+  const recentChats = chatGroups ? fillTemplate(templates.chatTable, { groups: chatGroups }) : empty('No chat data available from Copilot metadata.');
   const missingPricingNotice = missingPriceModels.length ? fillTemplate(templates.pricingNotice, { nonce, models: missingPriceModels.map(escapeHtml).join(', ') }) : '';
   return fillTemplate(templates.report, {
     nonce, missingPricingNotice,
@@ -653,6 +680,13 @@ function createNonce(): string {
 
 class UsageCollector implements vscode.Disposable {
   private readonly offsets = new Map<string, number>();
+  private readonly pendingTitles = new Map<string, string>();
+  private readonly pendingTitleRequests = new Map<string, { requestId: string; timestamp: string }[]>();
+  private readonly pendingNewChats = new Map<string, { chatId: string; timestamp: string }[]>();
+  private readonly pendingChatRequests = new Map<string, string>();
+  private readonly conversationTurns = new Map<string, { chatId: string; turnId: string }>();
+  private readonly websocketRequests = new Map<string, { chatId: string; turnId: string; startedAt: number }[]>();
+  private readonly pendingWebsocketResponses = new Map<string, { chatId: string; turnId: string }>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly seen = new Set<string>();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
@@ -793,6 +827,13 @@ class UsageCollector implements vscode.Disposable {
     } catch {
       this.seen.clear();
       this.offsets.clear();
+      this.pendingTitles.clear();
+      this.pendingTitleRequests.clear();
+      this.pendingNewChats.clear();
+      this.pendingChatRequests.clear();
+      this.conversationTurns.clear();
+      this.websocketRequests.clear();
+      this.pendingWebsocketResponses.clear();
     }
   }
 
@@ -816,18 +857,158 @@ class UsageCollector implements vscode.Disposable {
       this.offsets.set(sourceLog, currentOffset - Buffer.byteLength(partialLine, 'utf8'));
     }
     for (const line of lines) {
-      const parsed = parseLine(line, sourceLog, conversationIdFromLine(line), turnIdFromLine(line));
+      const conversationId = conversationIdFromLine(line);
+      const turnId = turnIdFromLine(line);
+      const newConversationId = newConversationIdFromLine(line);
+      const pendingTitle = newConversationId ? this.pendingTitles.get(sourceLog) : undefined;
+      if (newConversationId && pendingTitle) {
+        await this.updateChatTitle(newConversationId, pendingTitle, line.slice(0, 23));
+        this.pendingTitles.delete(sourceLog);
+      } else if (newConversationId) {
+        const chats = this.pendingNewChats.get(sourceLog) ?? [];
+        chats.push({ chatId: newConversationId, timestamp: line.slice(0, 23) });
+        this.pendingNewChats.set(sourceLog, chats.slice(-10));
+      }
+      if (conversationId && turnId) {
+        const turnKey = `${sourceLog}:${turnId}`;
+        this.conversationTurns.set(turnKey, { chatId: conversationId, turnId });
+        const startedAt = timestampFromLine(line);
+        if (startedAt && /\[ChatWebSocketManager\]\s+Sending request for conversation/i.test(line)) {
+          const requests = this.websocketRequests.get(sourceLog) ?? [];
+          requests.push({ chatId: conversationId, turnId, startedAt });
+          this.websocketRequests.set(sourceLog, requests.slice(-50));
+        }
+        const pendingRequestId = this.pendingChatRequests.get(turnKey);
+        if (pendingRequestId) {
+          await this.updateRecordChatMetadata(pendingRequestId, conversationId, turnId);
+          this.pendingChatRequests.delete(turnKey);
+        }
+      }
+      const voiceProgressRequestId = voiceProgressRequestIdFromLine(line);
+      if (voiceProgressRequestId) {
+        const pendingRequestId = this.pendingChatRequests.get(`${sourceLog}:pending`);
+        if (pendingRequestId) {
+          const turnKey = `${sourceLog}:${voiceProgressRequestId}`;
+          this.pendingChatRequests.set(turnKey, pendingRequestId);
+          this.pendingChatRequests.delete(`${sourceLog}:pending`);
+          const conversationTurn = this.conversationTurns.get(turnKey);
+          if (conversationTurn) {
+            await this.updateRecordChatMetadata(pendingRequestId, conversationTurn.chatId, conversationTurn.turnId);
+            this.pendingChatRequests.delete(turnKey);
+          }
+        }
+      }
+      const responseDuration = websocketResponseDurationFromLine(line);
+      const responseAt = timestampFromLine(line);
+      if (responseDuration !== undefined && responseAt !== undefined) {
+        const candidates = (this.websocketRequests.get(sourceLog) ?? []).filter(request => Math.abs(responseAt - request.startedAt - responseDuration) <= 250);
+        if (candidates.length === 1) this.pendingWebsocketResponses.set(sourceLog, candidates[0]);
+      }
+      const parsed = parseLine(line, sourceLog, conversationId, turnId);
       const request = parsed ? await readCopilotRequest(parsed.requestId) : undefined;
-      const chatId = request?.chatId ?? parsed?.chatId;
-      const resolvedTurnId = request?.turnId ?? parsed?.turnId;
+      const generatedTitle = parsed?.feature.toLowerCase() === 'title' && isUsableConversationTitle(request?.conversationTitle) ? request.conversationTitle : undefined;
+      if (generatedTitle) this.pendingTitles.set(sourceLog, generatedTitle);
+      if (parsed?.feature.toLowerCase() === 'title' && !generatedTitle) {
+        const titles = this.pendingTitleRequests.get(sourceLog) ?? [];
+        titles.push({ requestId: parsed.requestId, timestamp: parsed.timestamp });
+        this.pendingTitleRequests.set(sourceLog, titles.slice(-10));
+        this.scheduleTitleRecovery(sourceLog);
+      }
+      const websocketResponse = parsed?.requestType === 'chat' ? this.pendingWebsocketResponses.get(sourceLog) : undefined;
+      const chatId = request?.chatId ?? parsed?.chatId ?? websocketResponse?.chatId;
+      const resolvedTurnId = request?.turnId ?? parsed?.turnId ?? websocketResponse?.turnId;
       const record = parsed && request?.usage ? applyCopilotUsage(parsed, request.usage, chatId) : parsed;
-      const conversationTitle = parsed?.feature.toLowerCase() === 'title' ? request?.conversationTitle : undefined;
+      const conversationTitle = generatedTitle;
       const toolMetadata = request?.toolNames?.length ? { toolNames: request.toolNames, toolCallCount: request.toolCallCount } : {};
       const enrichedRecord = record ? { ...record, schemaId: usageSchemaId, ...(chatId ? { chatId } : {}), ...(resolvedTurnId ? { turnId: resolvedTurnId } : {}), ...(conversationTitle ? { conversationTitle } : {}), ...toolMetadata } : record;
+      if (websocketResponse) this.pendingWebsocketResponses.delete(sourceLog);
+      if (enrichedRecord && requestTypeOf(enrichedRecord) === 'chat' && !enrichedRecord.chatId) {
+        this.pendingChatRequests.set(`${sourceLog}:pending`, enrichedRecord.requestId);
+      }
       if (enrichedRecord && !this.seen.has(enrichedRecord.requestId)) {
         this.seen.add(enrichedRecord.requestId);
         await this.append(enrichedRecord);
       }
+    }
+  }
+
+  private async updateRecordChatMetadata(requestId: string, chatId: string, turnId: string): Promise<void> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) return;
+    const output = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
+    let content: string;
+    try {
+      content = await fs.readFile(output, 'utf8');
+    } catch {
+      return;
+    }
+    let changed = false;
+    const updated = content.split(/\r?\n/).map(line => {
+      try {
+        const record = JSON.parse(line) as UsageRecord;
+        if (record.requestId !== requestId || record.chatId === chatId && record.turnId === turnId) return line;
+        changed = true;
+        return JSON.stringify({ ...record, chatId, turnId, schemaId: usageSchemaId });
+      } catch {
+        return line;
+      }
+    });
+    if (!changed) return;
+    await fs.writeFile(output, updated.join('\n'), 'utf8');
+    const record = updated.flatMap(line => {
+      try {
+        const value = JSON.parse(line) as UsageRecord;
+        return value.requestId === requestId ? [value] : [];
+      } catch {
+        return [];
+      }
+    })[0];
+    if (record) await updateChatMetadata(record);
+    await this.onRecord();
+  }
+
+  private async updateChatTitle(chatId: string, title: string, timestamp: string): Promise<void> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) return;
+    const metadataPath = path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName);
+    const chats = await readChatMetadata();
+    const existing = chats.find(chat => chat.chatId === chatId);
+    const titleHistory = existing?.titleHistory ?? (existing?.title ? [{ title: existing.title, observedAt: existing.firstSeen }] : []);
+    if (titleHistory[titleHistory.length - 1]?.title !== title) titleHistory.push({ title, observedAt: timestamp });
+    const metadata: ChatMetadata = {
+      chatId,
+      title,
+      titleHistory,
+      turnIds: existing?.turnIds ?? [],
+      firstSeen: existing?.firstSeen ?? timestamp,
+      lastSeen: existing?.lastSeen ?? timestamp
+    };
+    await fs.mkdir(path.dirname(metadataPath), { recursive: true });
+    await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: [...chats.filter(chat => chat.chatId !== chatId), metadata] }, null, 2)}\n`, 'utf8');
+  }
+
+  private scheduleTitleRecovery(sourceLog: string): void {
+    setTimeout(() => void this.recoverPendingTitles(sourceLog, 3), 500);
+  }
+
+  private async recoverPendingTitles(sourceLog: string, attemptsRemaining: number): Promise<void> {
+    const titles = this.pendingTitleRequests.get(sourceLog) ?? [];
+    const chats = this.pendingNewChats.get(sourceLog) ?? [];
+    if (!titles.length || !chats.length) return;
+    const remainingTitles: { requestId: string; timestamp: string }[] = [];
+    for (const pendingTitle of titles) {
+      const title = (await readCopilotRequest(pendingTitle.requestId))?.conversationTitle;
+      const chat = chats.find(candidate => candidate.timestamp >= pendingTitle.timestamp);
+      if (isUsableConversationTitle(title) && chat) {
+        await this.updateChatTitle(chat.chatId, title, pendingTitle.timestamp);
+        this.pendingNewChats.set(sourceLog, (this.pendingNewChats.get(sourceLog) ?? []).filter(candidate => candidate !== chat));
+      } else {
+        remainingTitles.push(pendingTitle);
+      }
+    }
+    this.pendingTitleRequests.set(sourceLog, remainingTitles);
+    if (remainingTitles.length && attemptsRemaining > 1) {
+      setTimeout(() => void this.recoverPendingTitles(sourceLog, attemptsRemaining - 1), 1000);
     }
   }
 

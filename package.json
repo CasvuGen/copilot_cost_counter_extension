@@ -2,8 +2,8 @@
   "name": "copilot-cost-counter",
   "displayName": "Copilot Cost Counter",
   "description": "Record Copilot request usage and cost summaries from its output log.",
-  "version": "0.2.40",
-  "publisher": "local",
+  "version": "0.2.44",
+  "publisher": "CasvuGen",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
