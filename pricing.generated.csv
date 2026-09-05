@@ -45,3 +45,5 @@ provider,model,tier,threshold,since,input,cachedInput,cacheWrite,output
 "Google","Gemini 3.6 Flash1","Default","Not applicable","2026-09-04",0.75,0.075,"",3.75
 "Google","Gemini 3.7 Flash1","Default","Not applicable","2026-09-04",0.75,0.075,"",3.75
 "Google","Gemini 3.8 Flash1","Default","Not applicable","2026-09-04",0.75,0.075,"",3.75
+"OpenAI","GPT-6 Astra","Default","≤ 272K","2026-09-05",10,1,12.5,50
+"OpenAI","GPT-6 Astra","Long context","> 272K","2026-09-05",20,2,25,75

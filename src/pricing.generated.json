@@ -479,5 +479,27 @@
     "cachedInput": 0.075,
     "output": 3.75,
     "since": "2026-09-04"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6 Astra",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 10,
+    "cachedInput": 1,
+    "cacheWrite": 12.5,
+    "output": 50,
+    "since": "2026-09-05"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6 Astra",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 20,
+    "cachedInput": 2,
+    "cacheWrite": 25,
+    "output": 75,
+    "since": "2026-09-05"
   }
 ]

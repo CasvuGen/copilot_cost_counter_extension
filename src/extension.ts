@@ -1,4 +1,5 @@
 import * as fs from 'node:fs/promises';
+import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import generatedPricing from './pricing.generated.json';
@@ -7,7 +8,7 @@ const usageDirectory = '.copilot';
 const usageFileName = 'usage.jsonl';
 const usageMetadataFileName = 'usage_metadata.json';
 const usageMetadataSchemaId = 2;
-const usageSchemaId = 6;
+const usageSchemaId = 7;
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
 
 type ModelPricing = { input: number; cachedInput?: number; cacheWrite?: number; output: number };
@@ -56,6 +57,7 @@ type UsageRecord = {
   cacheWriteCredits: number | null;
   outputCredits: number | null;
   aiCredits: number | null;
+  copilotUsage: CopilotUsage | null;
   pricingSource: string;
   pricingUpdatedAt: string | null;
   costKind: 'estimated' | 'unavailable';
@@ -74,10 +76,15 @@ type ReportRecord = Pick<UsageRecord, 'schemaId' | 'timestamp' | 'sourceLog' | '
 type CopilotUsage = {
   prompt_tokens?: number;
   completion_tokens?: number;
+  total_tokens?: number;
   prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
-  copilot_usage?: { total_nano_aiu?: number };
+  completion_tokens_details?: { reasoning_tokens?: number; accepted_prediction_tokens?: number; rejected_prediction_tokens?: number };
+  copilot_usage?: { total_nano_aiu?: number; token_details?: CopilotUsageTokenDetail[] };
 };
+type CopilotUsageTokenDetail = { batch_size?: number; cost_per_batch?: number; model?: string; token_count?: number; token_type?: string };
 type CopilotRequest = { usage?: CopilotUsage; chatId?: string; turnId?: string; conversationTitle?: string; toolNames?: string[]; toolCallCount?: number };
+type CopilotSessionMetadata = { customTitle?: unknown; firstUserMessage?: unknown };
+type PersistedChatSession = { v?: { requests?: { message?: { text?: unknown }; prompt?: unknown }[] } };
 type ReportTemplates = {
   report: string;
   card: string;
@@ -199,10 +206,15 @@ function numberFromLine(line: string, names: string[]): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
+function usageTokenCount(usage: CopilotUsage, tokenType: string): number | undefined {
+  return usage.copilot_usage?.token_details?.find(detail => detail.token_type === tokenType && typeof detail.token_count === 'number')?.token_count;
+}
+
 function classifyRequestType(feature: string): RequestType {
   const normalized = feature.toLowerCase();
   if (/next.?edit|\bnes\b/.test(normalized)) return 'nextEditSuggestion';
   if (/inline|completion/.test(normalized)) return 'completion';
+  if (/^tool\/runsubagent-/i.test(feature)) return 'chat';
   if (/progressmessages|copilotlanguagemodelwrapper|tool|summarizeconversation|xtabprovider|healapplypatch|title/.test(normalized)) return 'utility';
   return 'chat';
 }
@@ -332,8 +344,13 @@ function newConversationIdFromLine(line: string): string | undefined {
 }
 
 function voiceProgressRequestIdFromLine(line: string): string | undefined {
-  const match = line.match(/\[VoiceProgress\]\s+fallback\s+request=(request_[0-9a-f-]{36})/i);
+  const match = line.match(/\[VoiceProgress\]\s+fallback\s+request=(request_[0-9a-f-]{36}|[0-9a-f-]{36})/i);
   return match?.[1];
+}
+
+function voiceProgressLoopFromLine(line: string): { requestId: string; isSubagent: boolean } | undefined {
+  const match = line.match(/\[VoiceProgress\]\s+loop\s+request=(request_[0-9a-f-]{36}|[0-9a-f-]{36}).*?\bsubagent=(true|false)/i);
+  return match ? { requestId: match[1], isSubagent: match[2].toLowerCase() === 'true' } : undefined;
 }
 
 function websocketResponseDurationFromLine(line: string): number | undefined {
@@ -401,6 +418,7 @@ function parseLine(line: string, sourceLog: string, chatId?: string, turnId?: st
     cacheWriteCredits,
     outputCredits,
     aiCredits: costUsd === null ? null : costUsd / .01,
+    copilotUsage: null,
     pricingSource,
     pricingUpdatedAt,
     costKind: costUsd === null ? 'unavailable' : 'estimated'
@@ -411,7 +429,9 @@ function applyCopilotUsage(record: UsageRecord, usage: CopilotUsage, chatId = re
   const promptTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : record.promptTokens;
   const outputTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : record.outputTokens;
   const cacheTokens = typeof usage.prompt_tokens_details?.cached_tokens === 'number' ? usage.prompt_tokens_details.cached_tokens : record.cacheTokens;
-  const cacheWriteTokens = typeof usage.prompt_tokens_details?.cache_write_tokens === 'number' ? usage.prompt_tokens_details.cache_write_tokens : record.cacheWriteTokens;
+  const cacheWriteTokens = typeof usage.prompt_tokens_details?.cache_write_tokens === 'number'
+    ? usage.prompt_tokens_details.cache_write_tokens
+    : usageTokenCount(usage, 'cache_write') ?? record.cacheWriteTokens;
   const modelPricing = configuredPricing()[normalizeModel(record.model)];
   const freshInputTokens = promptTokens === null ? null : Math.max(0, promptTokens - (cacheTokens ?? 0));
   const inputCostUsd = modelPricing && freshInputTokens !== null ? freshInputTokens * modelPricing.input / 1_000_000 : null;
@@ -447,6 +467,7 @@ function applyCopilotUsage(record: UsageRecord, usage: CopilotUsage, chatId = re
     cacheWriteCredits: cacheWriteCostUsd === null ? null : cacheWriteCostUsd / .01,
     outputCredits: outputCostUsd === null ? null : outputCostUsd / .01,
     aiCredits,
+    copilotUsage: usage,
     costKind: costUsd === null ? 'unavailable' : 'estimated'
   };
 }
@@ -497,6 +518,39 @@ async function readChatMetadata(): Promise<ChatMetadata[]> {
   } catch {
     return [];
   }
+}
+
+function usableSessionTitle(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const title = value.replace(/\s+/g, ' ').trim();
+  return title ? title : undefined;
+}
+
+async function readJsonFile<T>(filePath: string): Promise<T | undefined> {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8')) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+async function readPersistedChatTitle(workspaceStoragePath: string, chatId: string): Promise<string | undefined> {
+  const copilotHome = process.env.COPILOT_HOME || path.join(homedir(), '.copilot');
+  const sessionMetadataPath = path.join(copilotHome, 'session-state', chatId, 'vscode.metadata.json');
+  const sessionMetadata = await readJsonFile<CopilotSessionMetadata>(sessionMetadataPath);
+  const sessionTitle = usableSessionTitle(sessionMetadata?.customTitle) ?? usableSessionTitle(sessionMetadata?.firstUserMessage);
+  if (sessionTitle) return sessionTitle;
+
+  const cachedMetadata = await readJsonFile<Record<string, CopilotSessionMetadata>>(path.join(copilotHome, 'vscode.session.metadata.cache.json'));
+  const cachedTitle = usableSessionTitle(cachedMetadata?.[chatId]?.customTitle) ?? usableSessionTitle(cachedMetadata?.[chatId]?.firstUserMessage);
+  if (cachedTitle) return cachedTitle;
+
+  const chatSession = await readJsonFile<PersistedChatSession>(path.join(workspaceStoragePath, 'chatSessions', `${chatId}.jsonl`));
+  for (const request of chatSession?.v?.requests ?? []) {
+    const messageTitle = usableSessionTitle(request.message?.text) ?? usableSessionTitle(request.prompt);
+    if (messageTitle) return messageTitle;
+  }
+  return undefined;
 }
 
 async function updateChatMetadata(record: UsageRecord): Promise<void> {
@@ -683,8 +737,10 @@ class UsageCollector implements vscode.Disposable {
   private readonly pendingTitles = new Map<string, string>();
   private readonly pendingTitleRequests = new Map<string, { requestId: string; timestamp: string }[]>();
   private readonly pendingNewChats = new Map<string, { chatId: string; timestamp: string }[]>();
-  private readonly pendingChatRequests = new Map<string, string>();
+  private readonly pendingChatRequests = new Map<string, string[]>();
   private readonly conversationTurns = new Map<string, { chatId: string; turnId: string }>();
+  private readonly parentTurnBySubagentRequest = new Map<string, string>();
+  private readonly lastRootTurnByLog = new Map<string, string>();
   private readonly websocketRequests = new Map<string, { chatId: string; turnId: string; startedAt: number }[]>();
   private readonly pendingWebsocketResponses = new Map<string, { chatId: string; turnId: string }>();
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -708,6 +764,28 @@ class UsageCollector implements vscode.Disposable {
   async refresh(): Promise<void> {
     await this.reconcileStoredRecords();
     await this.poll();
+  }
+
+  private workspaceStoragePath(): string {
+    return path.dirname((this.context.storageUri ?? this.context.logUri).fsPath);
+  }
+
+  private async updatePersistedChatTitle(chatId: string, timestamp: string): Promise<boolean> {
+    const title = await readPersistedChatTitle(this.workspaceStoragePath(), chatId);
+    if (!title) return false;
+    return this.updateChatTitle(chatId, title, timestamp);
+  }
+
+  private async refreshPersistedChatTitles(records: readonly UsageRecord[]): Promise<boolean> {
+    let changed = false;
+    const chatTimestamps = new Map<string, string>();
+    for (const record of records) {
+      if (record.chatId && requestTypeOf(record) === 'chat') chatTimestamps.set(record.chatId, record.timestamp);
+    }
+    for (const [chatId, timestamp] of chatTimestamps) {
+      changed = await this.updatePersistedChatTitle(chatId, timestamp) || changed;
+    }
+    return changed;
   }
 
   private async reconcileStoredRecords(): Promise<void> {
@@ -763,6 +841,10 @@ class UsageCollector implements vscode.Disposable {
           updated = { ...updated, toolNames: request.toolNames, toolCallCount: request.toolCallCount };
           recordChanged = true;
         }
+        if (request.usage && !updated.copilotUsage) {
+          updated = { ...updated, copilotUsage: request.usage };
+          recordChanged = true;
+        }
         if (updated.costUsd !== null || !request.usage) {
           changed = changed || recordChanged;
           return recordChanged ? JSON.stringify(updated) : line;
@@ -775,8 +857,15 @@ class UsageCollector implements vscode.Disposable {
     }));
     if (changed) {
       await fs.writeFile(output, updated.join('\n'), 'utf8');
-      await this.onRecord();
     }
+    const records = updated.flatMap(line => {
+      try {
+        return line ? [JSON.parse(line) as UsageRecord] : [];
+      } catch {
+        return [];
+      }
+    });
+    if (await this.refreshPersistedChatTitles(records) || changed) await this.onRecord();
   }
 
   private async loadSeenRecords(): Promise<void> {
@@ -832,6 +921,8 @@ class UsageCollector implements vscode.Disposable {
       this.pendingNewChats.clear();
       this.pendingChatRequests.clear();
       this.conversationTurns.clear();
+      this.parentTurnBySubagentRequest.clear();
+      this.lastRootTurnByLog.clear();
       this.websocketRequests.clear();
       this.pendingWebsocketResponses.clear();
     }
@@ -857,6 +948,13 @@ class UsageCollector implements vscode.Disposable {
       this.offsets.set(sourceLog, currentOffset - Buffer.byteLength(partialLine, 'utf8'));
     }
     for (const line of lines) {
+      const voiceProgressLoop = voiceProgressLoopFromLine(line);
+      if (voiceProgressLoop?.isSubagent) {
+        const parentTurnId = this.lastRootTurnByLog.get(sourceLog);
+        if (parentTurnId) this.parentTurnBySubagentRequest.set(`${sourceLog}:${voiceProgressLoop.requestId}`, parentTurnId);
+      } else if (voiceProgressLoop) {
+        this.lastRootTurnByLog.set(sourceLog, voiceProgressLoop.requestId);
+      }
       const conversationId = conversationIdFromLine(line);
       const turnId = turnIdFromLine(line);
       const newConversationId = newConversationIdFromLine(line);
@@ -878,23 +976,23 @@ class UsageCollector implements vscode.Disposable {
           requests.push({ chatId: conversationId, turnId, startedAt });
           this.websocketRequests.set(sourceLog, requests.slice(-50));
         }
-        const pendingRequestId = this.pendingChatRequests.get(turnKey);
-        if (pendingRequestId) {
-          await this.updateRecordChatMetadata(pendingRequestId, conversationId, turnId);
-          this.pendingChatRequests.delete(turnKey);
-        }
+        await this.resolvePendingChatRequests(turnKey, conversationId, turnId);
+        await this.resolvePendingSubagentRequests(sourceLog, turnId, conversationId);
       }
       const voiceProgressRequestId = voiceProgressRequestIdFromLine(line);
       if (voiceProgressRequestId) {
-        const pendingRequestId = this.pendingChatRequests.get(`${sourceLog}:pending`);
-        if (pendingRequestId) {
+        const pendingRequestIds = this.pendingChatRequests.get(`${sourceLog}:pending`);
+        if (pendingRequestIds?.length) {
           const turnKey = `${sourceLog}:${voiceProgressRequestId}`;
-          this.pendingChatRequests.set(turnKey, pendingRequestId);
+          this.pendingChatRequests.set(turnKey, pendingRequestIds);
           this.pendingChatRequests.delete(`${sourceLog}:pending`);
           const conversationTurn = this.conversationTurns.get(turnKey);
           if (conversationTurn) {
-            await this.updateRecordChatMetadata(pendingRequestId, conversationTurn.chatId, conversationTurn.turnId);
-            this.pendingChatRequests.delete(turnKey);
+            await this.resolvePendingChatRequests(turnKey, conversationTurn.chatId, conversationTurn.turnId);
+          } else {
+            const parentTurnId = this.parentTurnBySubagentRequest.get(turnKey);
+            const parentTurn = parentTurnId ? this.conversationTurns.get(`${sourceLog}:${parentTurnId}`) : undefined;
+            if (parentTurn) await this.resolvePendingChatRequests(turnKey, parentTurn.chatId, parentTurn.turnId);
           }
         }
       }
@@ -923,12 +1021,30 @@ class UsageCollector implements vscode.Disposable {
       const enrichedRecord = record ? { ...record, schemaId: usageSchemaId, ...(chatId ? { chatId } : {}), ...(resolvedTurnId ? { turnId: resolvedTurnId } : {}), ...(conversationTitle ? { conversationTitle } : {}), ...toolMetadata } : record;
       if (websocketResponse) this.pendingWebsocketResponses.delete(sourceLog);
       if (enrichedRecord && requestTypeOf(enrichedRecord) === 'chat' && !enrichedRecord.chatId) {
-        this.pendingChatRequests.set(`${sourceLog}:pending`, enrichedRecord.requestId);
+        const pendingKey = `${sourceLog}:pending`;
+        this.pendingChatRequests.set(pendingKey, [...(this.pendingChatRequests.get(pendingKey) ?? []), enrichedRecord.requestId]);
       }
       if (enrichedRecord && !this.seen.has(enrichedRecord.requestId)) {
         this.seen.add(enrichedRecord.requestId);
         await this.append(enrichedRecord);
       }
+    }
+  }
+
+  private async resolvePendingChatRequests(key: string, chatId: string, turnId: string): Promise<void> {
+    const requestIds = this.pendingChatRequests.get(key);
+    if (!requestIds?.length) return;
+    this.pendingChatRequests.delete(key);
+    for (const requestId of requestIds) {
+      await this.updateRecordChatMetadata(requestId, chatId, turnId);
+    }
+  }
+
+  private async resolvePendingSubagentRequests(sourceLog: string, parentTurnId: string, chatId: string): Promise<void> {
+    for (const [subagentKey, mappedParentTurnId] of this.parentTurnBySubagentRequest) {
+      if (mappedParentTurnId !== parentTurnId) continue;
+      const requestIds = this.pendingChatRequests.get(subagentKey);
+      if (requestIds?.length) await this.resolvePendingChatRequests(subagentKey, chatId, parentTurnId);
     }
   }
 
@@ -963,16 +1079,20 @@ class UsageCollector implements vscode.Disposable {
         return [];
       }
     })[0];
-    if (record) await updateChatMetadata(record);
+    if (record) {
+      await updateChatMetadata(record);
+      if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp);
+    }
     await this.onRecord();
   }
 
-  private async updateChatTitle(chatId: string, title: string, timestamp: string): Promise<void> {
+  private async updateChatTitle(chatId: string, title: string, timestamp: string): Promise<boolean> {
     const folder = vscode.workspace.workspaceFolders?.[0];
-    if (!folder) return;
+    if (!folder) return false;
     const metadataPath = path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName);
     const chats = await readChatMetadata();
     const existing = chats.find(chat => chat.chatId === chatId);
+    if (existing?.title === title) return false;
     const titleHistory = existing?.titleHistory ?? (existing?.title ? [{ title: existing.title, observedAt: existing.firstSeen }] : []);
     if (titleHistory[titleHistory.length - 1]?.title !== title) titleHistory.push({ title, observedAt: timestamp });
     const metadata: ChatMetadata = {
@@ -985,6 +1105,7 @@ class UsageCollector implements vscode.Disposable {
     };
     await fs.mkdir(path.dirname(metadataPath), { recursive: true });
     await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: [...chats.filter(chat => chat.chatId !== chatId), metadata] }, null, 2)}\n`, 'utf8');
+    return true;
   }
 
   private scheduleTitleRecovery(sourceLog: string): void {
@@ -1019,6 +1140,7 @@ class UsageCollector implements vscode.Disposable {
     await fs.mkdir(path.dirname(output), { recursive: true });
     await fs.appendFile(output, `${JSON.stringify(record)}\n`, 'utf8');
     await updateChatMetadata(record);
+    if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp);
     await this.onRecord(record);
     this.status.text = record.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(record.costUsd)}`;
   }

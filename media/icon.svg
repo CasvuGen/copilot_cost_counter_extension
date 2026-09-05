@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Copilot Cost Counter</title>
+  <desc id="desc">A rising usage chart beside a dollar coin.</desc>
+  <rect width="256" height="256" rx="42" fill="#17212b"/>
+  <path d="M48 177V69M48 177H137" fill="none" stroke="#536575" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M64 151L93 123L122 147L151 118L177 91" fill="none" stroke="#62d8b5" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M151 91H182V122" fill="none" stroke="#62d8b5" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M177 91L182 91L182 96L151 96Z" fill="#62d8b5"/>
+  <circle cx="181" cy="181" r="35" fill="#f0b35b"/>
+  <path d="M195 159C188 153 178 153 171 158C164 164 167 171 177 176L187 181C196 186 197 193 190 200C183 207 173 206 165 199M181 151V211" fill="none" stroke="#17212b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
