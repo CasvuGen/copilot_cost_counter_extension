@@ -2,6 +2,23 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.73:start -->
+## [0.2.73] - 2026-09-05
+
+Compared with version 0.2.72 at commit `f5852477eb20e9a212455ad4bde6650c036fed61`.
+
+### Summary
+
+- feat: update version to 0.2.72 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- refactor: remove unused pending title management in UsageCollector
+
+### Commits
+
+- `3c2a1f6` feat: update version to 0.2.72 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- `a0d40df` refactor: remove unused pending title management in UsageCollector
+
+<!-- release:0.2.73:end -->
+
 <!-- release:0.2.72:start -->
 ## [0.2.72] - 2026-09-05
 
