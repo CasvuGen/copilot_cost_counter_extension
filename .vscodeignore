@@ -1,6 +1,8 @@
 src/
 tsconfig.json
 scripts/
+test/
+test_data/
 pricing.generated.csv
 *.tsbuildinfo
 .gitignore

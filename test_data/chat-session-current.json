@@ -1,0 +1,16 @@
+{
+  "version": 3,
+  "requesterUsername": "fixture-user",
+  "customTitle": "  Configure   CSS modules in Vite  ",
+  "firstUserMessage": "Use CSS modules",
+  "v": {
+    "requests": [
+      {
+        "message": {
+          "text": "Use CSS modules"
+        },
+        "prompt": "Use CSS modules"
+      }
+    ]
+  }
+}

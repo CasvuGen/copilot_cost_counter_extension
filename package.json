@@ -2,7 +2,7 @@
   "name": "copilot-cost-counter",
   "displayName": "Copilot Cost Counter",
   "description": "Record Copilot request usage and cost summaries from its output log.",
-  "version": "0.2.49",
+  "version": "0.2.52",
   "publisher": "CasvuGen",
   "license": "MIT",
   "repository": {
@@ -200,8 +200,9 @@
   "scripts": {
     "fetch-pricing": "node ./scripts/fetch-pricing.mjs",
     "compile": "npm run fetch-pricing && tsc -p ./tsconfig.json",
+    "test": "npm run compile && node --test test/*.test.mjs",
     "watch": "tsc -p ./tsconfig.json --watch",
-    "package": "npm version patch --no-git-tag-version && node ./scripts/update-readme-version.mjs && npm run compile && mkdir -p packages && vsce package --allow-missing-repository --out packages/copilot-cost-counter-$(node -p \"require('./package.json').version\").vsix"
+    "package": "npm version patch --no-git-tag-version && node ./scripts/update-readme-version.mjs && npm run test && mkdir -p packages && vsce package --allow-missing-repository --out packages/copilot-cost-counter-$(node -p \"require('./package.json').version\").vsix"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

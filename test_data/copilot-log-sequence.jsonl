@@ -1,0 +1,5 @@
+{"timestamp":"2026-09-05T10:00:00.000Z","message":"[ChatWebSocketManager] New request for conversation chat-fixture-001 turn turn-fixture-001"}
+{"timestamp":"2026-09-05T10:00:00.100Z","message":"ccreq fixture-request-001 model=gpt-4.1 feature=chat"}
+{"timestamp":"2026-09-05T10:00:01.000Z","message":"[ChatWebSocketManager] Sending request for conversation chat-fixture-001 turn turn-fixture-001"}
+{"timestamp":"2026-09-05T10:00:02.000Z","message":"[ChatWebSocketManager] New request for conversation chat-fixture-002 turn turn-fixture-002"}
+{"timestamp":"2026-09-05T10:00:02.100Z","message":"ccreq fixture-request-002 model=gpt-4.1 feature=chat"}

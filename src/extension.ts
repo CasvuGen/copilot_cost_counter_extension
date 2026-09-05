@@ -2,6 +2,8 @@ import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { sessionContainsTurn, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
+import { resolveConversationContext } from './conversationContext';
 import generatedPricing from './pricing.generated.json';
 
 const usageDirectory = '.copilot';
@@ -83,8 +85,7 @@ type CopilotUsage = {
 };
 type CopilotUsageTokenDetail = { batch_size?: number; cost_per_batch?: number; model?: string; token_count?: number; token_type?: string };
 type CopilotRequest = { usage?: CopilotUsage; chatId?: string; turnId?: string; conversationTitle?: string; toolNames?: string[]; toolCallCount?: number };
-type CopilotSessionMetadata = { customTitle?: unknown; firstUserMessage?: unknown };
-type PersistedChatSession = { v?: { requests?: { message?: { text?: unknown }; prompt?: unknown }[] } };
+type CopilotSessionMetadata = { customTitle?: unknown; firstUserMessage?: unknown; v?: { requests?: { message?: { text?: unknown }; prompt?: unknown }[] } };
 type ReportTemplates = {
   report: string;
   card: string;
@@ -520,12 +521,6 @@ async function readChatMetadata(): Promise<ChatMetadata[]> {
   }
 }
 
-function usableSessionTitle(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const title = value.replace(/\s+/g, ' ').trim();
-  return title ? title : undefined;
-}
-
 async function readJsonFile<T>(filePath: string): Promise<T | undefined> {
   try {
     return JSON.parse(await fs.readFile(filePath, 'utf8')) as T;
@@ -534,21 +529,42 @@ async function readJsonFile<T>(filePath: string): Promise<T | undefined> {
   }
 }
 
-async function readPersistedChatTitle(workspaceStoragePath: string, chatId: string): Promise<string | undefined> {
+async function sessionTitleFromFile(filePath: string): Promise<string | undefined> {
+  try {
+    return sessionTitleFromJsonl(await fs.readFile(filePath, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
+async function readPersistedChatTitle(workspaceStoragePath: string, chatId: string, turnIds: readonly string[] = []): Promise<string | undefined> {
   const copilotHome = process.env.COPILOT_HOME || path.join(homedir(), '.copilot');
   const sessionMetadataPath = path.join(copilotHome, 'session-state', chatId, 'vscode.metadata.json');
   const sessionMetadata = await readJsonFile<CopilotSessionMetadata>(sessionMetadataPath);
-  const sessionTitle = usableSessionTitle(sessionMetadata?.customTitle) ?? usableSessionTitle(sessionMetadata?.firstUserMessage);
+  const sessionTitle = sessionTitleFromMetadata(sessionMetadata);
   if (sessionTitle) return sessionTitle;
 
   const cachedMetadata = await readJsonFile<Record<string, CopilotSessionMetadata>>(path.join(copilotHome, 'vscode.session.metadata.cache.json'));
-  const cachedTitle = usableSessionTitle(cachedMetadata?.[chatId]?.customTitle) ?? usableSessionTitle(cachedMetadata?.[chatId]?.firstUserMessage);
+  const cachedTitle = sessionTitleFromMetadata(cachedMetadata?.[chatId]);
   if (cachedTitle) return cachedTitle;
 
-  const chatSession = await readJsonFile<PersistedChatSession>(path.join(workspaceStoragePath, 'chatSessions', `${chatId}.jsonl`));
-  for (const request of chatSession?.v?.requests ?? []) {
-    const messageTitle = usableSessionTitle(request.message?.text) ?? usableSessionTitle(request.prompt);
-    if (messageTitle) return messageTitle;
+  const chatSessionsDirectory = path.join(workspaceStoragePath, 'chatSessions');
+  const directTitle = await sessionTitleFromFile(path.join(chatSessionsDirectory, `${chatId}.json`))
+    ?? await sessionTitleFromFile(path.join(chatSessionsDirectory, `${chatId}.jsonl`));
+  if (directTitle || !turnIds.length) return directTitle;
+
+  try {
+    const sessionFiles = await fs.readdir(chatSessionsDirectory, { withFileTypes: true });
+    for (const sessionFile of sessionFiles) {
+      if (!sessionFile.isFile() || !/\.jsonl$/i.test(sessionFile.name)) continue;
+      const sessionPath = path.join(chatSessionsDirectory, sessionFile.name);
+      const content = await fs.readFile(sessionPath, 'utf8');
+      if (!sessionContainsTurn(content, turnIds)) continue;
+      const title = sessionTitleFromJsonl(content);
+      if (title) return title;
+    }
+  } catch {
+    return undefined;
   }
   return undefined;
 }
@@ -692,7 +708,7 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
   const chatGroups = [...chats.entries()].sort((left, right) => right[1][right[1].length - 1].timestamp.localeCompare(left[1][left[1].length - 1].timestamp)).slice(0, 20).map(([key, chatRecords]) => {
     const estimatedChatCost = chatRecords.reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
     const conversationTitle = chatRecords.find(record => record.conversationTitle)?.conversationTitle;
-    const title = conversationTitle ?? (key === 'unavailable' ? 'Older requests without chat metadata' : `Chat ${key.slice(0, 12)}`);
+    const title = conversationTitles.get(key) ?? conversationTitle ?? (key === 'unavailable' ? 'Older requests without chat metadata' : `Chat ${key.slice(0, 12)}`);
     const chatDate = formatActivityDate(chatRecords[chatRecords.length - 1].timestamp);
     const turns = new Map<string, ReportRecord[]>();
     for (const record of chatRecords) {
@@ -739,6 +755,7 @@ class UsageCollector implements vscode.Disposable {
   private readonly pendingNewChats = new Map<string, { chatId: string; timestamp: string }[]>();
   private readonly pendingChatRequests = new Map<string, string[]>();
   private readonly conversationTurns = new Map<string, { chatId: string; turnId: string }>();
+  private readonly activeConversationTurnByLog = new Map<string, { chatId: string; turnId: string }>();
   private readonly parentTurnBySubagentRequest = new Map<string, string>();
   private readonly lastRootTurnByLog = new Map<string, string>();
   private readonly websocketRequests = new Map<string, { chatId: string; turnId: string; startedAt: number }[]>();
@@ -770,20 +787,24 @@ class UsageCollector implements vscode.Disposable {
     return path.dirname((this.context.storageUri ?? this.context.logUri).fsPath);
   }
 
-  private async updatePersistedChatTitle(chatId: string, timestamp: string): Promise<boolean> {
-    const title = await readPersistedChatTitle(this.workspaceStoragePath(), chatId);
+  private async updatePersistedChatTitle(chatId: string, timestamp: string, turnIds: readonly string[] = []): Promise<boolean> {
+    const title = await readPersistedChatTitle(this.workspaceStoragePath(), chatId, turnIds);
     if (!title) return false;
     return this.updateChatTitle(chatId, title, timestamp);
   }
 
   private async refreshPersistedChatTitles(records: readonly UsageRecord[]): Promise<boolean> {
     let changed = false;
-    const chatTimestamps = new Map<string, string>();
+    const chatTimestamps = new Map<string, { timestamp: string; turnIds: string[] }>();
     for (const record of records) {
-      if (record.chatId && requestTypeOf(record) === 'chat') chatTimestamps.set(record.chatId, record.timestamp);
+      if (!record.chatId || requestTypeOf(record) !== 'chat') continue;
+      const chat = chatTimestamps.get(record.chatId) ?? { timestamp: record.timestamp, turnIds: [] };
+      chat.timestamp = record.timestamp;
+      if (record.turnId) chat.turnIds.push(record.turnId);
+      chatTimestamps.set(record.chatId, chat);
     }
-    for (const [chatId, timestamp] of chatTimestamps) {
-      changed = await this.updatePersistedChatTitle(chatId, timestamp) || changed;
+    for (const [chatId, chat] of chatTimestamps) {
+      changed = await this.updatePersistedChatTitle(chatId, chat.timestamp, chat.turnIds) || changed;
     }
     return changed;
   }
@@ -921,6 +942,7 @@ class UsageCollector implements vscode.Disposable {
       this.pendingNewChats.clear();
       this.pendingChatRequests.clear();
       this.conversationTurns.clear();
+      this.activeConversationTurnByLog.clear();
       this.parentTurnBySubagentRequest.clear();
       this.lastRootTurnByLog.clear();
       this.websocketRequests.clear();
@@ -969,7 +991,9 @@ class UsageCollector implements vscode.Disposable {
       }
       if (conversationId && turnId) {
         const turnKey = `${sourceLog}:${turnId}`;
-        this.conversationTurns.set(turnKey, { chatId: conversationId, turnId });
+        const conversationTurn = { chatId: conversationId, turnId };
+        this.conversationTurns.set(turnKey, conversationTurn);
+        this.activeConversationTurnByLog.set(sourceLog, conversationTurn);
         const startedAt = timestampFromLine(line);
         if (startedAt && /\[ChatWebSocketManager\]\s+Sending request for conversation/i.test(line)) {
           const requests = this.websocketRequests.get(sourceLog) ?? [];
@@ -1013,8 +1037,10 @@ class UsageCollector implements vscode.Disposable {
         this.scheduleTitleRecovery(sourceLog);
       }
       const websocketResponse = parsed?.requestType === 'chat' ? this.pendingWebsocketResponses.get(sourceLog) : undefined;
-      const chatId = request?.chatId ?? parsed?.chatId ?? websocketResponse?.chatId;
-      const resolvedTurnId = request?.turnId ?? parsed?.turnId ?? websocketResponse?.turnId;
+      const activeConversationTurn = this.activeConversationTurnByLog.get(sourceLog);
+      const conversationContext = resolveConversationContext(request, parsed, websocketResponse, activeConversationTurn);
+      const chatId = conversationContext?.chatId;
+      const resolvedTurnId = conversationContext?.turnId;
       const record = parsed && request?.usage ? applyCopilotUsage(parsed, request.usage, chatId) : parsed;
       const conversationTitle = generatedTitle;
       const toolMetadata = request?.toolNames?.length ? { toolNames: request.toolNames, toolCallCount: request.toolCallCount } : {};
@@ -1081,7 +1107,7 @@ class UsageCollector implements vscode.Disposable {
     })[0];
     if (record) {
       await updateChatMetadata(record);
-      if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp);
+      if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp, record.turnId ? [record.turnId] : []);
     }
     await this.onRecord();
   }
@@ -1121,7 +1147,8 @@ class UsageCollector implements vscode.Disposable {
       const title = (await readCopilotRequest(pendingTitle.requestId))?.conversationTitle;
       const chat = chats.find(candidate => candidate.timestamp >= pendingTitle.timestamp);
       if (isUsableConversationTitle(title) && chat) {
-        await this.updateChatTitle(chat.chatId, title, pendingTitle.timestamp);
+        const changed = await this.updateChatTitle(chat.chatId, title, pendingTitle.timestamp);
+        if (changed) await this.onRecord();
         this.pendingNewChats.set(sourceLog, (this.pendingNewChats.get(sourceLog) ?? []).filter(candidate => candidate !== chat));
       } else {
         remainingTitles.push(pendingTitle);
@@ -1140,7 +1167,7 @@ class UsageCollector implements vscode.Disposable {
     await fs.mkdir(path.dirname(output), { recursive: true });
     await fs.appendFile(output, `${JSON.stringify(record)}\n`, 'utf8');
     await updateChatMetadata(record);
-    if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp);
+    if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp, record.turnId ? [record.turnId] : []);
     await this.onRecord(record);
     this.status.text = record.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(record.costUsd)}`;
   }

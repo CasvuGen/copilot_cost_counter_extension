@@ -1,6 +1,6 @@
 ## Copilot Cost Counter
 
-**Version:** 0.2.49
+**Version:** 0.2.52
 
 Track GitHub Copilot request activity in VS Code with workspace-local cost, AI-credit, token, model, feature, and conversation reports.
 
