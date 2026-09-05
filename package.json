@@ -2,7 +2,7 @@
   "name": "copilot-cost-counter",
   "displayName": "GitHub Copilot Cost Counter",
   "description": "Track GitHub Copilot for VS Code request usage and estimated costs from its output log.",
-  "version": "0.2.70",
+  "version": "0.2.71",
   "publisher": "CasvuGen",
   "license": "MIT",
   "repository": {

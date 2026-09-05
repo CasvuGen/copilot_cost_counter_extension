@@ -2,7 +2,7 @@
 
 > **Note:** Use this extension at your own discretion. This has been a vibe-coded project from the start, so review its behavior and do not rely on its estimates for billing decisions without independent verification.
 
-**Version:** 0.2.70
+**Version:** 0.2.71
 
 Track GitHub Copilot request activity in VS Code with workspace-local cost, AI-credit, token, model, feature, and conversation reports.
 
