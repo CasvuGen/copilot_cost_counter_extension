@@ -1,0 +1,3 @@
+{"kind":0,"v":{"version":3,"sessionId":"22222222-2222-4222-8222-222222222222","requests":[]}}
+{"kind":1,"v":{"requests":[{"requestId":"request_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","message":{"text":"Synthetic initial label"}}]}}
+{"kind":1,"k":["inputState","inputText"],"v":"Input text"}
