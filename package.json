@@ -203,7 +203,8 @@
     "test": "npm run compile && node --test test/*.test.mjs",
     "watch": "tsc -p ./tsconfig.json --watch",
     "backup-codebase": "node ./scripts/backup-codebase.mjs",
-    "package": "npm run backup-codebase && npm version patch --no-git-tag-version && node ./scripts/update-readme-version.mjs && npm run test && mkdir -p packages && vsce package --allow-missing-repository --out packages/copilot-cost-counter-$(node -p \"require('./package.json').version\").vsix"
+    "generate-version-changes": "node ./scripts/generate-version-changes.mjs",
+    "package": "node ./scripts/package.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

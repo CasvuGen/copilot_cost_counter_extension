@@ -50,7 +50,7 @@ npm install
 npm run package
 ```
 
-`npm run package` first snapshots the current codebase to `versions/<previous-version>/codebase`, then increments the patch version, compiles the extension, and creates `packages/copilot-cost-counter-<version>.vsix`. Snapshots exclude generated folders such as `node_modules`, `dist`, `packages`, and other version snapshots. Install that generated VSIX with **Extensions: Install from VSIX...** or:
+`npm run package` first snapshots the current codebase to `versions/<previous-version>/codebase`, increments the patch version, and writes `versions/<version>/CHANGES.md`. The change note summarizes Git commit messages since the previous packaged version. Each version folder also stores `RELEASE.json`, which records the version and its Git commit, so later release notes have a stable comparison point. Supply an explicit release note with `npm run package -- --comment "Comment here"`. Packaging then compiles the extension and creates `packages/copilot-cost-counter-<version>.vsix`. Snapshots exclude generated folders such as `node_modules`, `dist`, `packages`, and other version snapshots. Install that generated VSIX with **Extensions: Install from VSIX...** or:
 
 ```sh
 code --install-extension ./packages/copilot-cost-counter-<version>.vsix
