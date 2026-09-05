@@ -779,9 +779,6 @@ function createNonce(): string {
 
 class UsageCollector implements vscode.Disposable {
   private readonly offsets = new Map<string, number>();
-  private readonly pendingTitles = new Map<string, string>();
-  private readonly pendingTitleRequests = new Map<string, { requestId: string; timestamp: string; rootTurnId?: string }[]>();
-  private readonly pendingNewChats = new Map<string, { chatId: string; timestamp: string }[]>();
   private readonly pendingChatRequests = new Map<string, string[]>();
   private readonly conversationTurns = new Map<string, { chatId: string; turnId: string }>();
   private readonly parentTurnBySubagentRequest = new Map<string, string>();
@@ -1029,9 +1026,6 @@ class UsageCollector implements vscode.Disposable {
       await fs.access(path.join(folder.uri.fsPath, usageDirectory, usageFileName));
     } catch {
       this.seen.clear();
-      this.pendingTitles.clear();
-      this.pendingTitleRequests.clear();
-      this.pendingNewChats.clear();
       this.pendingChatRequests.clear();
       this.conversationTurns.clear();
       this.parentTurnBySubagentRequest.clear();
@@ -1075,15 +1069,6 @@ class UsageCollector implements vscode.Disposable {
       const conversationId = conversationIdFromLine(line);
       const turnId = turnIdFromLine(line);
       const newConversationId = newConversationIdFromLine(line);
-      const pendingTitle = newConversationId ? this.pendingTitles.get(sourceLog) : undefined;
-      if (newConversationId && pendingTitle) {
-        await this.updateChatTitle(newConversationId, pendingTitle, line.slice(0, 23));
-        this.pendingTitles.delete(sourceLog);
-      } else if (newConversationId) {
-        const chats = this.pendingNewChats.get(sourceLog) ?? [];
-        chats.push({ chatId: newConversationId, timestamp: line.slice(0, 23) });
-        this.pendingNewChats.set(sourceLog, chats.slice(-10));
-      }
       if (conversationId && turnId) {
         const turnKey = `${sourceLog}:${turnId}`;
         const conversationTurn = { chatId: conversationId, turnId };
@@ -1125,18 +1110,10 @@ class UsageCollector implements vscode.Disposable {
       const websocketResponse = parsed?.requestType === 'chat' ? this.pendingWebsocketResponses.get(sourceLog) : undefined;
       const rootTurnId = websocketResponse?.turnId ?? this.lastRootTurnByLog.get(sourceLog) ?? parsed?.turnId ?? request?.turnId;
       const generatedTitle = parsed?.feature.toLowerCase() === 'title' && isUsableConversationTitle(request?.conversationTitle) ? request.conversationTitle : undefined;
+      const titleTurnId = generatedTitle ? parsed?.turnId ?? request?.turnId : undefined;
+      const titleChat = titleTurnId ? await persistedChatForTurn(this.workspaceStoragePath(), titleTurnId) : undefined;
+      if (generatedTitle && titleChat) await this.updateChatTitle(titleChat.chatId, generatedTitle, parsed?.timestamp ?? line.slice(0, 23));
       const persistedChat = rootTurnId ? await persistedChatForTurn(this.workspaceStoragePath(), rootTurnId) : undefined;
-      if (generatedTitle && persistedChat) {
-        await this.updateChatTitle(persistedChat.chatId, generatedTitle, parsed?.timestamp ?? line.slice(0, 23));
-      } else if (generatedTitle) {
-        this.pendingTitles.set(sourceLog, generatedTitle);
-      }
-      if (parsed?.feature.toLowerCase() === 'title' && !generatedTitle) {
-        const titles = this.pendingTitleRequests.get(sourceLog) ?? [];
-        titles.push({ requestId: parsed.requestId, timestamp: parsed.timestamp, rootTurnId });
-        this.pendingTitleRequests.set(sourceLog, titles.slice(-10));
-        this.scheduleTitleRecovery(sourceLog);
-      }
       const chatId = persistedChat?.chatId;
       const resolvedTurnId = rootTurnId;
       const record = parsed && request?.usage ? applyCopilotUsage(parsed, request.usage, chatId) : parsed;
@@ -1233,39 +1210,6 @@ class UsageCollector implements vscode.Disposable {
     await fs.mkdir(path.dirname(metadataPath), { recursive: true });
     await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: [...chats.filter(chat => chat.chatId !== chatId), metadata] }, null, 2)}\n`, 'utf8');
     return true;
-  }
-
-  private scheduleTitleRecovery(sourceLog: string): void {
-    setTimeout(() => void this.recoverPendingTitles(sourceLog, 3), 500);
-  }
-
-  private async recoverPendingTitles(sourceLog: string, attemptsRemaining: number): Promise<void> {
-    const titles = this.pendingTitleRequests.get(sourceLog) ?? [];
-    const chats = this.pendingNewChats.get(sourceLog) ?? [];
-    if (!titles.length || !chats.length) return;
-    const remainingTitles: { requestId: string; timestamp: string; rootTurnId?: string }[] = [];
-    for (const pendingTitle of titles) {
-      const title = (await readCopilotRequest(pendingTitle.requestId))?.conversationTitle;
-      const persistedChat = pendingTitle.rootTurnId
-        ? await persistedChatForTurn(this.workspaceStoragePath(), pendingTitle.rootTurnId)
-        : undefined;
-      if (isUsableConversationTitle(title) && persistedChat) {
-        await this.updateChatTitle(persistedChat.chatId, title, pendingTitle.timestamp);
-        continue;
-      }
-      const chat = chats.find(candidate => candidate.timestamp >= pendingTitle.timestamp);
-      if (isUsableConversationTitle(title) && chat) {
-        const changed = await this.updateChatTitle(chat.chatId, title, pendingTitle.timestamp);
-        if (changed) await this.onRecord();
-        this.pendingNewChats.set(sourceLog, (this.pendingNewChats.get(sourceLog) ?? []).filter(candidate => candidate !== chat));
-      } else {
-        remainingTitles.push(pendingTitle);
-      }
-    }
-    this.pendingTitleRequests.set(sourceLog, remainingTitles);
-    if (remainingTitles.length && attemptsRemaining > 1) {
-      setTimeout(() => void this.recoverPendingTitles(sourceLog, attemptsRemaining - 1), 1000);
-    }
   }
 
   private async append(record: UsageRecord): Promise<void> {
