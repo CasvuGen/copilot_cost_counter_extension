@@ -29,7 +29,7 @@ test('writes a commit-backed release summary and records its Git anchor', async 
 
     await runFile(process.execPath, [changesScript], { env: { ...process.env, COPILOT_COST_COUNTER_CHANGES_ROOT: projectRoot } });
 
-    const changes = await readFile(path.join(projectRoot, 'versions', '1.2.4', 'CHANGES.md'), 'utf8');
+    const changes = await readFile(path.join(projectRoot, 'CHANGELOG.md'), 'utf8');
     const metadata = JSON.parse(await readFile(path.join(projectRoot, 'versions', '1.2.4', 'RELEASE.json'), 'utf8'));
     assert.match(changes, /Compared with version 1\.2\.3 at commit/);
     assert.match(changes, /feat: add release summaries/);
@@ -39,8 +39,9 @@ test('writes a commit-backed release summary and records its Git anchor', async 
     assert.match(metadata.commit, /^[0-9a-f]{40}$/);
 
     await runFile(process.execPath, [changesScript, '--comment', 'Document the release workflow.'], { env: { ...process.env, COPILOT_COST_COUNTER_CHANGES_ROOT: projectRoot } });
-    const overriddenChanges = await readFile(path.join(projectRoot, 'versions', '1.2.4', 'CHANGES.md'), 'utf8');
+    const overriddenChanges = await readFile(path.join(projectRoot, 'CHANGELOG.md'), 'utf8');
     assert.match(overriddenChanges, /Document the release workflow\./);
+    assert.equal((overriddenChanges.match(/## \[1\.2\.4\]/g) ?? []).length, 1);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

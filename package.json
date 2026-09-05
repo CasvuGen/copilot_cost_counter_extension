@@ -1,8 +1,8 @@
 {
   "name": "copilot-cost-counter",
-  "displayName": "Copilot Cost Counter",
-  "description": "Record Copilot request usage and cost summaries from its output log.",
-  "version": "0.2.69",
+  "displayName": "GitHub Copilot Cost Counter",
+  "description": "Track GitHub Copilot for VS Code request usage and estimated costs from its output log.",
+  "version": "0.2.70",
   "publisher": "CasvuGen",
   "license": "MIT",
   "repository": {
@@ -16,7 +16,10 @@
   "icon": "media/icon.png",
   "pricing": "Free",
   "keywords": [
-    "copilot",
+    "github copilot",
+    "github-copilot",
+    "github copilot chat",
+    "copilot usage",
     "usage",
     "cost",
     "tokens",
@@ -30,6 +33,9 @@
   ],
   "activationEvents": [
     "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "GitHub.copilot-chat"
   ],
   "main": "./dist/extension.js",
   "contributes": {

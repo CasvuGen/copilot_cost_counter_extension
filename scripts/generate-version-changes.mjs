@@ -40,7 +40,7 @@ async function previousRelease(currentVersion, versionsDirectory) {
     // Releases created before commit metadata are recovered from package history.
   }
 
-  const candidates = (await git('log', '--format=%H', '-S', `"version": "${version}"`, '--', 'package.json')).split('\n').filter(Boolean);
+  const candidates = (await git('log', '--format=%H', '--', 'package.json')).split('\n').filter(Boolean);
   for (const candidate of candidates) {
     const packageAtCommit = JSON.parse(await git('show', `${candidate}:package.json`));
     if (packageAtCommit.version === version) return { version, commit: candidate };
@@ -62,9 +62,12 @@ const summary = comment ? comment : commits.length
   ? commits.map(commit => `- ${commit.subject}`).join('\n')
   : '- No commits were recorded after the previous release commit.';
 const releaseDirectory = path.join(versionsDirectory, currentVersion);
-const changesFile = path.join(releaseDirectory, 'CHANGES.md');
 const metadataFile = path.join(releaseDirectory, 'RELEASE.json');
-const changes = `# Changes in ${currentVersion}\n\nCompared with version ${previous.version} at commit \`${previous.commit}\`.\n\n## Summary\n\n${summary}\n\n${commits.length ? `## Commits\n\n${commits.map(commit => `- \`${commit.hash}\` ${commit.subject}`).join('\n')}\n` : ''}`;
+const changelogFile = path.join(projectRoot, 'CHANGELOG.md');
+const changelogHeader = '# Changelog\n\nRelease summaries are generated from Git commit messages when a version is packaged.\n';
+const releaseStart = `<!-- release:${currentVersion}:start -->`;
+const releaseEnd = `<!-- release:${currentVersion}:end -->`;
+const releaseEntry = `${releaseStart}\n## [${currentVersion}] - ${new Date().toISOString().slice(0, 10)}\n\nCompared with version ${previous.version} at commit \`${previous.commit}\`.\n\n### Summary\n\n${summary}\n\n${commits.length ? `### Commits\n\n${commits.map(commit => `- \`${commit.hash}\` ${commit.subject}`).join('\n')}\n\n` : ''}${releaseEnd}`;
 const metadata = {
   schemaId: 1,
   version: currentVersion,
@@ -74,7 +77,19 @@ const metadata = {
   generatedAt: new Date().toISOString()
 };
 
+let existingChangelog = changelogHeader;
+try {
+  existingChangelog = await readFile(changelogFile, 'utf8');
+} catch (error) {
+  if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+}
+const entryPattern = new RegExp(`\\n?<!-- release:${currentVersion}:start -->[\\s\\S]*?<!-- release:${currentVersion}:end -->\\n?`, 'g');
+const existingEntries = existingChangelog.startsWith(changelogHeader)
+  ? existingChangelog.slice(changelogHeader.length).replace(entryPattern, '').trim()
+  : existingChangelog.replace(entryPattern, '').trim();
+const changelog = `${changelogHeader}\n${releaseEntry}${existingEntries ? `\n\n${existingEntries}` : ''}\n`;
+
 await mkdir(releaseDirectory, { recursive: true });
-await writeFile(changesFile, changes, 'utf8');
 await writeFile(metadataFile, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
-console.log(`Generated release summary: ${changesFile}`);
+await writeFile(changelogFile, changelog, 'utf8');
+console.log(`Generated release summary: ${changelogFile}`);
