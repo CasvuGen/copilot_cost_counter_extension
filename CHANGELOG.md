@@ -2,6 +2,23 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.72:start -->
+## [0.2.72] - 2026-09-05
+
+Compared with version 0.2.71 at commit `0ea60d321789407ff8677c403732f1e0d128e102`.
+
+### Summary
+
+- feat: update version to 0.2.70, implement changelog generation, and adjust related scripts and tests
+- feat: update version to 0.2.71 in package.json, package-lock.json, README.md, and add changelog entry
+
+### Commits
+
+- `0c08378` feat: update version to 0.2.70, implement changelog generation, and adjust related scripts and tests
+- `f585247` feat: update version to 0.2.71 in package.json, package-lock.json, README.md, and add changelog entry
+
+<!-- release:0.2.72:end -->
+
 <!-- release:0.2.71:start -->
 ## [0.2.71] - 2026-09-05
 
