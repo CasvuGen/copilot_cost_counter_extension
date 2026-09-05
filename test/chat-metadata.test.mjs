@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { sessionContainsTurn, sessionTitleFromJsonl, sessionTitleFromMetadata } from '../dist/chatMetadata.js';
+import { firstUserMessageLabel, isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionContainsTurn, sessionTitleFromJsonl, sessionTitleFromMetadata } from '../dist/chatMetadata.js';
 
 const fixturePath = name => fileURLToPath(new URL(`../test_data/${name}`, import.meta.url));
 
@@ -24,29 +24,56 @@ test('resolves the title from a current VS Code session fixture', async () => {
   );
 });
 
-test('falls back to the persisted first user message', () => {
-  assert.equal(sessionTitleFromMetadata({ firstUserMessage: '  Explain this error\nplease ' }), 'Explain this error please');
+test('resolves a custom title from a VS Code JSONL journal payload', () => {
+  assert.equal(sessionTitleFromJsonl('{"kind":0,"v":{"sessionId":"synthetic-session","customTitle":"Journal title"}}'), 'Journal title');
 });
 
-test('falls back to the first nested request message for older sessions', () => {
-  assert.equal(
-    sessionTitleFromMetadata({ v: { requests: [{ message: { text: 'Help me debug the build' } }] } }),
-    'Help me debug the build'
-  );
+test('collects a later turn from a VS Code requests patch event', () => {
+  const content = [
+    '{"kind":0,"v":{"sessionId":"synthetic-session","customTitle":"Journal title","requests":[{"requestId":"request-first"}]}}',
+    '{"kind":1,"k":["requests"],"v":[{"requestId":"request-second"}]}'
+  ].join('\n');
+  assert.deepEqual(persistedChatSessionFromJsonl(content), {
+    chatId: 'synthetic-session',
+    title: 'Journal title',
+    turnIds: ['request-first', 'request-second']
+  });
 });
 
-test('resolves the title from a legacy JSONL session fixture', async () => {
+test('does not use the first user message as a generated chat title', () => {
+  assert.equal(sessionTitleFromMetadata({ firstUserMessage: '  Explain this error\nplease ' }), undefined);
+});
+
+test('does not use a nested request message as a generated chat title', () => {
+  assert.equal(sessionTitleFromMetadata({ v: { requests: [{ message: { text: 'Help me debug the build' } }] } }), undefined);
+});
+
+test('does not treat a legacy session prompt as a generated title', async () => {
   const lines = (await readFile(fixturePath('chat-session-legacy.jsonl'), 'utf8')).trim().split(/\r?\n/);
-  assert.equal(sessionTitleFromMetadata(JSON.parse(lines[0])), 'Explain this build error please');
+  assert.equal(sessionTitleFromMetadata(JSON.parse(lines[0])), undefined);
 });
 
-test('resolves a title from a later incremental session event', async () => {
+test('does not treat session prompts as chat titles', async () => {
   const content = await readFile(fixturePath('chat-session-incremental.jsonl'), 'utf8');
-  assert.equal(sessionTitleFromJsonl(content), 'allo!');
+  assert.equal(sessionTitleFromJsonl(content), undefined);
   assert.equal(sessionContainsTurn(content, ['request_6de70366-605e-4a08-8af3-cb9316ade7c0']), true);
   assert.equal(sessionContainsTurn(content, ['request-from-another-chat']), false);
+  assert.deepEqual(persistedChatSessionFromJsonl(content), {
+    chatId: 'client-session-allotest',
+    turnIds: ['request_6de70366-605e-4a08-8af3-cb9316ade7c0']
+  });
 });
 
 test('ignores blank and non-string title values', () => {
   assert.equal(sessionTitleFromMetadata({ customTitle: '  ', firstUserMessage: 42, v: { requests: [{ prompt: '' }] } }), undefined);
+});
+
+test('identifies persisted title sources', () => {
+  assert.equal(isPersistedChatTitleSource('copilot'), true);
+  assert.equal(isPersistedChatTitleSource('firstUserMessage'), true);
+  assert.equal(isPersistedChatTitleSource('unavailable'), false);
+});
+
+test('rejects Copilot policy responses as generated titles', () => {
+  assert.equal(isUsableConversationTitle("Sorry, I can't assist with that."), false);
 });
