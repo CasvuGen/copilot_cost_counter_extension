@@ -1,6 +1,6 @@
 ## Copilot Cost Counter
 
-**Version:** 0.2.52
+**Version:** 0.2.68
 
 Track GitHub Copilot request activity in VS Code with workspace-local cost, AI-credit, token, model, feature, and conversation reports.
 
@@ -48,7 +48,7 @@ npm install
 npm run package
 ```
 
-`npm run package` increments the patch version, compiles the extension, and creates `packages/copilot-cost-counter-<version>.vsix`. Install that generated VSIX with **Extensions: Install from VSIX...** or:
+`npm run package` first snapshots the current codebase to `versions/<previous-version>/codebase`, then increments the patch version, compiles the extension, and creates `packages/copilot-cost-counter-<version>.vsix`. Snapshots exclude generated folders such as `node_modules`, `dist`, `packages`, and other version snapshots. Install that generated VSIX with **Extensions: Install from VSIX...** or:
 
 ```sh
 code --install-extension ./packages/copilot-cost-counter-<version>.vsix
@@ -67,7 +67,7 @@ The `copilotCostCounter.logPath` setting is intentionally empty by default. An e
 1. Run `Copilot Cost Counter: Choose Output Log` and select the log file.
 2. Set `copilotCostCounter.logPath` in workspace settings. Relative paths are resolved from the first workspace folder; absolute paths are accepted.
 
-The extension polls the selected log and records each successful `ccreq` request once. Use `Copilot Cost Counter: Open Workspace Usage` to open `.copilot/usage.jsonl`.
+The extension starts at the end of logs that already exist when it activates, then records each newly completed `ccreq` request once. This prevents extension reinstalls or deletion of `.copilot/usage.jsonl` from replaying historical VS Code logs. Use `Copilot Cost Counter: Open Workspace Usage` to open `.copilot/usage.jsonl`.
 
 Use the Usage Report view title menu for Refresh and Open Workspace Usage. The gear button beside that menu opens the extension settings.
 
@@ -85,7 +85,7 @@ After installation, select the **Copilot Cost Counter** graph icon in the Activi
 
 Use **Refresh** in the report when needed. The report also refreshes when the extension appends a new request. Values are calculated only from records written to the current workspace’s `.copilot/usage.jsonl`. When a `ccreq` document contains `usage.copilot_usage.total_nano_aiu`, that Copilot-reported AI-credit total is authoritative, including an explicit zero; token-price calculations are used only as a fallback when the AIU total is absent.
 
-Use the **Credits** and **Tokens** tabs to switch between dollar/AI-credit totals and token totals. The **Spend** selector switches the chart among daily activity, the highest-cost conversations, and the highest-cost Copilot features; its selection persists when new data refreshes the report. The lower **Activity** section has **Recent requests** and **Chats** tabs. Chats include regular chat orchestration such as `backgroundTodoAgent` and `tool/runSubagent-*`; subagent costs are assigned to their parent chat turn when Copilot logs that relationship. Completions, next-edit suggestions such as `copilot-nes-lysithea-24`, and utility requests such as `XtabProvider` are excluded. Chat requests are grouped as conversation, turn, and individual request only when Copilot exposes an explicit conversation ID or a title utility result that can provide a fallback identity. Generic session IDs are not used as conversation IDs because they can span multiple chats. Requests before the first reliable chat identity remain visible in Recent requests and usage totals but are not merged into a misleading `Older requests without chat metadata` conversation. For identified chats, the extension resolves names from Copilot's durable session metadata first, then from VS Code's persisted first user message for that same conversation; transient `title` utility requests are only a fallback. This also backfills names for chats that began before the extension was installed. Chat titles, chat IDs, observed turn IDs, and timestamps are maintained in the versioned `.copilot/usage_metadata.json` document; request usage and cost records remain in `.copilot/usage.jsonl`. The extension cannot open a private Copilot chat panel directly through the public VS Code API. The selected tabs persist when new data refreshes the report.
+Use the **Credits** and **Tokens** tabs to switch between dollar/AI-credit totals and token totals. The **Spend** selector switches the chart among daily activity, the highest-cost conversations, and the highest-cost Copilot features; its selection persists when new data refreshes the report. The lower **Activity** section has **Recent requests** and **Chats** tabs. Chats include regular chat orchestration such as `backgroundTodoAgent` and `tool/runSubagent-*`; subagent costs are assigned to their parent chat turn when Copilot logs that relationship. Completions, next-edit suggestions such as `copilot-nes-lysithea-24`, and utility requests such as `XtabProvider` are excluded. Chat requests are grouped as conversation, turn, and individual request only when Copilot exposes an explicit conversation ID or a title utility result that can provide a fallback identity. Generic session IDs are not used as conversation IDs because they can span multiple chats. Requests before the first reliable chat identity remain visible in Recent requests and usage totals but are not merged into a misleading `Older requests without chat metadata` conversation. For identified chats, the extension resolves names from explicit Copilot titles or the persisted first user message associated with that conversation. Unnamed chats are shown by a shortened conversation ID. Chat titles, chat IDs, observed turn IDs, and timestamps are maintained in the versioned `.copilot/usage_metadata.json` document; request usage and cost records remain in `.copilot/usage.jsonl`. The extension cannot open a private Copilot chat panel directly through the public VS Code API. The selected tabs persist when new data refreshes the report.
 
 When token counts are present but a model has no input or output rate, the report shows a gray warning naming the model and points to `copilotCostCounter.modelPricingOverrides`.
 

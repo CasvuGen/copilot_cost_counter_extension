@@ -30,12 +30,14 @@ test('resolves a custom title from a VS Code JSONL journal payload', () => {
 
 test('collects a later turn from a VS Code requests patch event', () => {
   const content = [
-    '{"kind":0,"v":{"sessionId":"synthetic-session","customTitle":"Journal title","requests":[{"requestId":"request-first"}]}}',
+    '{"kind":0,"v":{"sessionId":"synthetic-session","customTitle":"Journal title","requests":[{"requestId":"request-first","message":{"text":"Initial request"}}]}}',
     '{"kind":1,"k":["requests"],"v":[{"requestId":"request-second"}]}'
   ].join('\n');
   assert.deepEqual(persistedChatSessionFromJsonl(content), {
     chatId: 'synthetic-session',
     title: 'Journal title',
+    titleSource: 'copilot',
+    firstUserMessage: 'Initial request',
     turnIds: ['request-first', 'request-second']
   });
 });
@@ -53,13 +55,16 @@ test('does not treat a legacy session prompt as a generated title', async () => 
   assert.equal(sessionTitleFromMetadata(JSON.parse(lines[0])), undefined);
 });
 
-test('does not treat session prompts as chat titles', async () => {
+test('uses the first user message when a session has no generated title', async () => {
   const content = await readFile(fixturePath('chat-session-incremental.jsonl'), 'utf8');
   assert.equal(sessionTitleFromJsonl(content), undefined);
   assert.equal(sessionContainsTurn(content, ['request_6de70366-605e-4a08-8af3-cb9316ade7c0']), true);
   assert.equal(sessionContainsTurn(content, ['request-from-another-chat']), false);
   assert.deepEqual(persistedChatSessionFromJsonl(content), {
     chatId: 'client-session-allotest',
+    title: 'allo!',
+    titleSource: 'firstUserMessage',
+    firstUserMessage: 'allo!',
     turnIds: ['request_6de70366-605e-4a08-8af3-cb9316ade7c0']
   });
 });

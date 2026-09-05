@@ -3,6 +3,8 @@ tsconfig.json
 scripts/
 test/
 test_data/
+versions/
 pricing.generated.csv
 *.tsbuildinfo
 .gitignore
+*_refe/

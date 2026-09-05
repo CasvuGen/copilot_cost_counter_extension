@@ -31,9 +31,13 @@ test('synthetic corpus session journals expose stable client sessions and safe l
     assert.ok(session.chatId.length > 0);
     assert.ok(session.turnIds.length > 0);
   }
-  assert.equal(sessions.find(session => session?.chatId === '22222222-2222-4222-8222-222222222222')?.title, undefined);
+  const fallbackTitledSession = sessions.find(session => session?.chatId === '22222222-2222-4222-8222-222222222222');
+  assert.equal(fallbackTitledSession?.title, 'Synthetic initial label');
+  assert.equal(fallbackTitledSession?.titleSource, 'firstUserMessage');
+  assert.equal(fallbackTitledSession?.firstUserMessage, 'Synthetic initial label');
   const titledSession = sessions.find(session => session?.chatId === '11111111-1111-4111-8111-111111111111');
   assert.equal(titledSession?.title, 'Synthetic titled chat');
+  assert.equal(titledSession?.titleSource, 'copilot');
   assert.deepEqual(titledSession?.turnIds, [
     'request_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'request_dddddddd-dddd-4ddd-8ddd-dddddddddddd'

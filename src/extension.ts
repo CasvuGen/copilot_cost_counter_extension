@@ -2,14 +2,13 @@ import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { sessionContainsTurn, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
-import { resolveConversationContext } from './conversationContext';
+import { isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
 import generatedPricing from './pricing.generated.json';
 
 const usageDirectory = '.copilot';
 const usageFileName = 'usage.jsonl';
 const usageMetadataFileName = 'usage_metadata.json';
-const usageMetadataSchemaId = 2;
+const usageMetadataSchemaId = 3;
 const usageSchemaId = 7;
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
 
@@ -32,6 +31,8 @@ type UsageRecord = {
   chatId?: string;
   turnId?: string;
   conversationTitle?: string;
+  conversationTitleSource?: 'copilot' | 'firstUserMessage';
+  firstUserMessage?: string;
   toolNames?: string[];
   toolCallCount?: number;
   model: string;
@@ -67,14 +68,15 @@ type UsageRecord = {
 
 type ChatMetadata = {
   chatId: string;
-  title?: string;
+  title: string;
+  titleSource: 'copilot' | 'firstUserMessage' | 'unavailable';
   titleHistory?: { title: string; observedAt: string }[];
   turnIds: string[];
   firstSeen: string;
   lastSeen: string;
 };
 
-type ReportRecord = Pick<UsageRecord, 'schemaId' | 'timestamp' | 'sourceLog' | 'requestId' | 'chatId' | 'turnId' | 'conversationTitle' | 'toolNames' | 'toolCallCount' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
+type ReportRecord = Pick<UsageRecord, 'schemaId' | 'timestamp' | 'sourceLog' | 'requestId' | 'chatId' | 'turnId' | 'conversationTitle' | 'conversationTitleSource' | 'firstUserMessage' | 'toolNames' | 'toolCallCount' | 'model' | 'feature' | 'requestType' | 'durationMs' | 'promptTokens' | 'freshInputTokens' | 'outputTokens' | 'cacheTokens' | 'cacheWriteTokens' | 'inputRateUsdPerMillion' | 'outputRateUsdPerMillion' | 'aiCredits' | 'costUsd' | 'costKind'>;
 type CopilotUsage = {
   prompt_tokens?: number;
   completion_tokens?: number;
@@ -85,7 +87,7 @@ type CopilotUsage = {
 };
 type CopilotUsageTokenDetail = { batch_size?: number; cost_per_batch?: number; model?: string; token_count?: number; token_type?: string };
 type CopilotRequest = { usage?: CopilotUsage; chatId?: string; turnId?: string; conversationTitle?: string; toolNames?: string[]; toolCallCount?: number };
-type CopilotSessionMetadata = { customTitle?: unknown; firstUserMessage?: unknown; v?: { requests?: { message?: { text?: unknown }; prompt?: unknown }[] } };
+type CopilotSessionMetadata = { customTitle?: unknown };
 type ReportTemplates = {
   report: string;
   card: string;
@@ -268,10 +270,6 @@ function formatUnavailable(record: Pick<ReportRecord, 'requestType' | 'feature'>
 
 function formatActivityDate(timestamp: string): string {
   return timestamp.replace('T', ' ').slice(0, 16);
-}
-
-function isUsableConversationTitle(title: string | undefined): title is string {
-  return Boolean(title && title.trim() && !/^sorry,?\s+i can't assist with that\.?$/i.test(title.trim()));
 }
 
 function formatToolUsage(record: Pick<ReportRecord, 'toolNames' | 'toolCallCount'>): string {
@@ -514,8 +512,12 @@ async function readChatMetadata(): Promise<ChatMetadata[]> {
   try {
     const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName), 'utf8');
     const value = JSON.parse(content) as { schemaId?: unknown; chats?: unknown };
-    if ((value.schemaId !== 1 && value.schemaId !== usageMetadataSchemaId) || !Array.isArray(value.chats)) return [];
-    return value.chats.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string');
+    if ((value.schemaId !== 1 && value.schemaId !== 2 && value.schemaId !== usageMetadataSchemaId) || !Array.isArray(value.chats)) return [];
+    return value.chats.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string').map(chat => {
+      if (isPersistedChatTitleSource(chat.titleSource)) return chat;
+      const { title: _title, titleHistory: _titleHistory, titleSource: _titleSource, ...legacyChat } = chat;
+      return { ...legacyChat, title: `Chat ${legacyChat.chatId.slice(0, 12)}`, titleSource: 'unavailable' as const };
+    });
   } catch {
     return [];
   }
@@ -537,36 +539,60 @@ async function sessionTitleFromFile(filePath: string): Promise<string | undefine
   }
 }
 
-async function readPersistedChatTitle(workspaceStoragePath: string, chatId: string, turnIds: readonly string[] = []): Promise<string | undefined> {
+async function readPersistedChatTitle(workspaceStoragePath: string, chatId: string, turnIds: readonly string[] = []): Promise<{ title: string; titleSource: 'copilot' | 'firstUserMessage' } | undefined> {
   const copilotHome = process.env.COPILOT_HOME || path.join(homedir(), '.copilot');
   const sessionMetadataPath = path.join(copilotHome, 'session-state', chatId, 'vscode.metadata.json');
   const sessionMetadata = await readJsonFile<CopilotSessionMetadata>(sessionMetadataPath);
   const sessionTitle = sessionTitleFromMetadata(sessionMetadata);
-  if (sessionTitle) return sessionTitle;
+  if (sessionTitle) return { title: sessionTitle, titleSource: 'copilot' };
 
   const cachedMetadata = await readJsonFile<Record<string, CopilotSessionMetadata>>(path.join(copilotHome, 'vscode.session.metadata.cache.json'));
   const cachedTitle = sessionTitleFromMetadata(cachedMetadata?.[chatId]);
-  if (cachedTitle) return cachedTitle;
+  if (cachedTitle) return { title: cachedTitle, titleSource: 'copilot' };
 
+  const persistedChat = turnIds.length ? await persistedChatForTurn(workspaceStoragePath, turnIds[0]) : undefined;
+  return persistedChat?.title && persistedChat.titleSource ? { title: persistedChat.title, titleSource: persistedChat.titleSource } : undefined;
+}
+
+async function persistedChatForTurn(workspaceStoragePath: string, turnId: string): Promise<{ chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string } | undefined> {
+  const chatsByTurn = await persistedChatsByTurn(workspaceStoragePath);
+  return chatsByTurn.get(turnId);
+}
+
+async function persistedChatsByTurn(workspaceStoragePath: string): Promise<Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string }>> {
+  const chatsByTurn = new Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string }>();
   const chatSessionsDirectory = path.join(workspaceStoragePath, 'chatSessions');
-  const directTitle = await sessionTitleFromFile(path.join(chatSessionsDirectory, `${chatId}.json`))
-    ?? await sessionTitleFromFile(path.join(chatSessionsDirectory, `${chatId}.jsonl`));
-  if (directTitle || !turnIds.length) return directTitle;
-
   try {
-    const sessionFiles = await fs.readdir(chatSessionsDirectory, { withFileTypes: true });
-    for (const sessionFile of sessionFiles) {
-      if (!sessionFile.isFile() || !/\.jsonl$/i.test(sessionFile.name)) continue;
-      const sessionPath = path.join(chatSessionsDirectory, sessionFile.name);
-      const content = await fs.readFile(sessionPath, 'utf8');
-      if (!sessionContainsTurn(content, turnIds)) continue;
-      const title = sessionTitleFromJsonl(content);
-      if (title) return title;
+    const entries = await fs.readdir(chatSessionsDirectory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !/\.jsonl$/i.test(entry.name)) continue;
+      const content = await fs.readFile(path.join(chatSessionsDirectory, entry.name), 'utf8');
+      const session = persistedChatSessionFromJsonl(content);
+      if (!session) continue;
+      for (const turnId of session.turnIds) chatsByTurn.set(turnId, { chatId: session.chatId, ...(session.title ? { title: session.title, titleSource: session.titleSource } : {}), ...(session.firstUserMessage ? { firstUserMessage: session.firstUserMessage } : {}) });
     }
   } catch {
-    return undefined;
+    return chatsByTurn;
   }
-  return undefined;
+  return chatsByTurn;
+}
+
+async function ensureChatMetadataTitles(): Promise<boolean> {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (!folder) return false;
+  const metadataPath = path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName);
+  const value = await readJsonFile<{ chats?: unknown }>(metadataPath);
+  if (!Array.isArray(value?.chats)) return false;
+  let changed = false;
+  const chats = value.chats.map(chat => {
+    if (typeof chat !== 'object' || chat === null || typeof (chat as ChatMetadata).chatId !== 'string') return chat;
+    const metadata = chat as Partial<ChatMetadata>;
+    if (metadata.title) return chat;
+    changed = true;
+    return { ...metadata, title: `Chat ${metadata.chatId!.slice(0, 12)}`, titleSource: 'unavailable' };
+  });
+  if (changed) await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats }, null, 2)}\n`, 'utf8');
+  return changed;
 }
 
 async function updateChatMetadata(record: UsageRecord): Promise<void> {
@@ -578,9 +604,12 @@ async function updateChatMetadata(record: UsageRecord): Promise<void> {
   const existing = chats.find(chat => chat.chatId === record.chatId);
   const turnIds = new Set(existing?.turnIds ?? []);
   if (requestTypeOf(record) === 'chat' && record.turnId) turnIds.add(record.turnId);
+  const useExistingTitle = existing?.titleSource === 'copilot' && record.conversationTitleSource !== 'copilot';
+  const title = useExistingTitle ? existing.title : record.conversationTitle ?? existing?.title ?? `Chat ${record.chatId.slice(0, 12)}`;
   const metadata: ChatMetadata = {
     chatId: record.chatId,
-    ...(record.conversationTitle ?? existing?.title ? { title: record.conversationTitle ?? existing?.title } : {}),
+    title,
+    titleSource: useExistingTitle ? 'copilot' : record.conversationTitleSource ?? existing?.titleSource ?? 'unavailable',
     ...(existing?.titleHistory ? { titleHistory: existing.titleHistory } : {}),
     turnIds: [...turnIds],
     firstSeen: existing?.firstSeen ?? record.timestamp,
@@ -663,7 +692,7 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
     if (chat.title) conversationTitles.set(chat.chatId, chat.title);
   }
   for (const record of records) {
-    if (record.chatId && record.conversationTitle && !conversationTitles.has(record.chatId)) conversationTitles.set(record.chatId, record.conversationTitle);
+    if (record.chatId && isPersistedChatTitleSource(record.conversationTitleSource) && record.conversationTitle && !conversationTitles.has(record.chatId)) conversationTitles.set(record.chatId, record.conversationTitle);
   }
   for (const record of estimated) {
     const day = record.timestamp.slice(0, 10) || 'Unknown';
@@ -707,7 +736,7 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
   }
   const chatGroups = [...chats.entries()].sort((left, right) => right[1][right[1].length - 1].timestamp.localeCompare(left[1][left[1].length - 1].timestamp)).slice(0, 20).map(([key, chatRecords]) => {
     const estimatedChatCost = chatRecords.reduce((sum, record) => sum + (record.costUsd ?? 0), 0);
-    const conversationTitle = chatRecords.find(record => record.conversationTitle)?.conversationTitle;
+    const conversationTitle = chatRecords.find(record => record.conversationTitleSource === 'copilot')?.conversationTitle;
     const title = conversationTitles.get(key) ?? conversationTitle ?? (key === 'unavailable' ? 'Older requests without chat metadata' : `Chat ${key.slice(0, 12)}`);
     const chatDate = formatActivityDate(chatRecords[chatRecords.length - 1].timestamp);
     const turns = new Map<string, ReportRecord[]>();
@@ -751,11 +780,10 @@ function createNonce(): string {
 class UsageCollector implements vscode.Disposable {
   private readonly offsets = new Map<string, number>();
   private readonly pendingTitles = new Map<string, string>();
-  private readonly pendingTitleRequests = new Map<string, { requestId: string; timestamp: string }[]>();
+  private readonly pendingTitleRequests = new Map<string, { requestId: string; timestamp: string; rootTurnId?: string }[]>();
   private readonly pendingNewChats = new Map<string, { chatId: string; timestamp: string }[]>();
   private readonly pendingChatRequests = new Map<string, string[]>();
   private readonly conversationTurns = new Map<string, { chatId: string; turnId: string }>();
-  private readonly activeConversationTurnByLog = new Map<string, { chatId: string; turnId: string }>();
   private readonly parentTurnBySubagentRequest = new Map<string, string>();
   private readonly lastRootTurnByLog = new Map<string, string>();
   private readonly websocketRequests = new Map<string, { chatId: string; turnId: string; startedAt: number }[]>();
@@ -773,6 +801,7 @@ class UsageCollector implements vscode.Disposable {
 
   async start(): Promise<void> {
     await this.loadSeenRecords();
+    await this.initializeLogOffsets();
     await this.reconcileStoredRecords();
     await this.poll();
     this.schedule();
@@ -788,25 +817,61 @@ class UsageCollector implements vscode.Disposable {
   }
 
   private async updatePersistedChatTitle(chatId: string, timestamp: string, turnIds: readonly string[] = []): Promise<boolean> {
-    const title = await readPersistedChatTitle(this.workspaceStoragePath(), chatId, turnIds);
-    if (!title) return false;
-    return this.updateChatTitle(chatId, title, timestamp);
+    const persistedTitle = await readPersistedChatTitle(this.workspaceStoragePath(), chatId, turnIds);
+    if (!persistedTitle) return false;
+    return this.updateChatTitle(chatId, persistedTitle.title, timestamp, persistedTitle.titleSource);
   }
 
   private async refreshPersistedChatTitles(records: readonly UsageRecord[]): Promise<boolean> {
     let changed = false;
-    const chatTimestamps = new Map<string, { timestamp: string; turnIds: string[] }>();
+    const chatTimestamps = new Map<string, { timestamp: string; turnIds: string[]; firstUserMessage?: string }>();
     for (const record of records) {
       if (!record.chatId || requestTypeOf(record) !== 'chat') continue;
       const chat = chatTimestamps.get(record.chatId) ?? { timestamp: record.timestamp, turnIds: [] };
       chat.timestamp = record.timestamp;
       if (record.turnId) chat.turnIds.push(record.turnId);
+      chat.firstUserMessage ??= record.firstUserMessage;
       chatTimestamps.set(record.chatId, chat);
     }
     for (const [chatId, chat] of chatTimestamps) {
       changed = await this.updatePersistedChatTitle(chatId, chat.timestamp, chat.turnIds) || changed;
+      if (chat.firstUserMessage) changed = await this.updateChatTitle(chatId, chat.firstUserMessage, chat.timestamp, 'firstUserMessage') || changed;
     }
     return changed;
+  }
+
+  private async canonicalChatsByRequest(records: readonly UsageRecord[]): Promise<Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string; turnId: string }>> {
+    const chats = new Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string; turnId: string }>();
+    const chatsByTurn = await persistedChatsByTurn(this.workspaceStoragePath());
+    for (const record of records) {
+      if (!record.turnId) continue;
+      const chat = chatsByTurn.get(record.turnId);
+      if (chat) chats.set(record.requestId, { ...chat, turnId: record.turnId });
+    }
+
+    const requestIds = new Set(records
+      .filter(record => requestTypeOf(record) === 'chat' && !chats.has(record.requestId) && !record.turnId)
+      .map(record => record.requestId));
+    const rootTurns = new Map<string, string>();
+    for (const sourceLog of new Set(records.map(record => record.sourceLog))) {
+      try {
+        const content = await fs.readFile(sourceLog, 'utf8');
+        let rootTurnId: string | undefined;
+        for (const line of content.split(/\r?\n/)) {
+          const loop = voiceProgressLoopFromLine(line);
+          if (loop && !loop.isSubagent) rootTurnId = loop.requestId;
+          const requestId = line.match(/ccreq:([^\s.]+)\.copilotmd\s+\|/i)?.[1];
+          if (requestId && rootTurnId && requestIds.has(requestId)) rootTurns.set(requestId, rootTurnId);
+        }
+      } catch {
+        continue;
+      }
+    }
+    for (const [requestId, turnId] of rootTurns) {
+      const chat = chatsByTurn.get(turnId);
+      if (chat) chats.set(requestId, { ...chat, turnId });
+    }
+    return chats;
   }
 
   private async reconcileStoredRecords(): Promise<void> {
@@ -820,7 +885,16 @@ class UsageCollector implements vscode.Disposable {
       return;
     }
     const lines = content.split(/\r?\n/);
+    const storedRecords = lines.flatMap(line => {
+      try {
+        return line ? [JSON.parse(line) as UsageRecord] : [];
+      } catch {
+        return [];
+      }
+    });
+    const canonicalChats = await this.canonicalChatsByRequest(storedRecords);
     let changed = false;
+    const metadataRecords: UsageRecord[] = [];
     const updated = await Promise.all(lines.map(async line => {
       if (!line) return line;
       try {
@@ -841,12 +915,20 @@ class UsageCollector implements vscode.Disposable {
           updated = { ...updated, requestType: inferredRequestType };
           recordChanged = true;
         }
+        const persistedChat = canonicalChats.get(updated.requestId);
+        if (persistedChat) {
+          if (updated.chatId !== persistedChat.chatId || updated.turnId !== persistedChat.turnId || (persistedChat.title && (updated.conversationTitle !== persistedChat.title || updated.conversationTitleSource !== persistedChat.titleSource)) || (persistedChat.firstUserMessage && updated.firstUserMessage !== persistedChat.firstUserMessage)) {
+            updated = { ...updated, chatId: persistedChat.chatId, turnId: persistedChat.turnId, ...(persistedChat.title ? { conversationTitle: persistedChat.title, conversationTitleSource: persistedChat.titleSource } : {}), ...(persistedChat.firstUserMessage ? { firstUserMessage: persistedChat.firstUserMessage } : {}) };
+            recordChanged = true;
+            metadataRecords.push(updated);
+          }
+        }
         const request = await readCopilotRequest(updated.requestId);
         if (!request) {
           changed = changed || recordChanged;
           return recordChanged ? JSON.stringify(updated) : line;
         }
-        if (request.chatId && updated.chatId !== request.chatId) {
+        if (request.chatId && !updated.chatId) {
           updated = { ...updated, chatId: request.chatId };
           recordChanged = true;
         }
@@ -871,7 +953,7 @@ class UsageCollector implements vscode.Disposable {
           return recordChanged ? JSON.stringify(updated) : line;
         }
         changed = true;
-        return JSON.stringify({ ...applyCopilotUsage(updated, request.usage, request.chatId), schemaId: usageSchemaId });
+        return JSON.stringify({ ...applyCopilotUsage(updated, request.usage, updated.chatId), schemaId: usageSchemaId });
       } catch {
         return line;
       }
@@ -879,6 +961,7 @@ class UsageCollector implements vscode.Disposable {
     if (changed) {
       await fs.writeFile(output, updated.join('\n'), 'utf8');
     }
+    for (const record of metadataRecords) await updateChatMetadata(record);
     const records = updated.flatMap(line => {
       try {
         return line ? [JSON.parse(line) as UsageRecord] : [];
@@ -886,7 +969,7 @@ class UsageCollector implements vscode.Disposable {
         return [];
       }
     });
-    if (await this.refreshPersistedChatTitles(records) || changed) await this.onRecord();
+    if (await ensureChatMetadataTitles() || await this.refreshPersistedChatTitles(records) || changed) await this.onRecord();
   }
 
   private async loadSeenRecords(): Promise<void> {
@@ -922,6 +1005,16 @@ class UsageCollector implements vscode.Disposable {
     return discoverCopilotLogs(path.dirname(this.context.logUri.fsPath));
   }
 
+  private async initializeLogOffsets(): Promise<void> {
+    for (const sourceLog of await this.logPaths()) {
+      try {
+        this.offsets.set(sourceLog, (await fs.stat(sourceLog)).size);
+      } catch {
+        continue;
+      }
+    }
+  }
+
   private async poll(): Promise<void> {
     await this.resetIfOutputMissing();
     for (const sourceLog of await this.logPaths()) {
@@ -936,13 +1029,11 @@ class UsageCollector implements vscode.Disposable {
       await fs.access(path.join(folder.uri.fsPath, usageDirectory, usageFileName));
     } catch {
       this.seen.clear();
-      this.offsets.clear();
       this.pendingTitles.clear();
       this.pendingTitleRequests.clear();
       this.pendingNewChats.clear();
       this.pendingChatRequests.clear();
       this.conversationTurns.clear();
-      this.activeConversationTurnByLog.clear();
       this.parentTurnBySubagentRequest.clear();
       this.lastRootTurnByLog.clear();
       this.websocketRequests.clear();
@@ -954,7 +1045,11 @@ class UsageCollector implements vscode.Disposable {
     let text: string;
     try {
       const stat = await fs.stat(sourceLog);
-      const offset = this.offsets.get(sourceLog) ?? 0;
+      if (!this.offsets.has(sourceLog)) {
+        this.offsets.set(sourceLog, stat.size);
+        return;
+      }
+      const offset = this.offsets.get(sourceLog) as number;
       const buffer = await fs.readFile(sourceLog);
       const start = stat.size < offset ? 0 : offset;
       text = buffer.subarray(start).toString('utf8');
@@ -993,7 +1088,6 @@ class UsageCollector implements vscode.Disposable {
         const turnKey = `${sourceLog}:${turnId}`;
         const conversationTurn = { chatId: conversationId, turnId };
         this.conversationTurns.set(turnKey, conversationTurn);
-        this.activeConversationTurnByLog.set(sourceLog, conversationTurn);
         const startedAt = timestampFromLine(line);
         if (startedAt && /\[ChatWebSocketManager\]\s+Sending request for conversation/i.test(line)) {
           const requests = this.websocketRequests.get(sourceLog) ?? [];
@@ -1028,27 +1122,32 @@ class UsageCollector implements vscode.Disposable {
       }
       const parsed = parseLine(line, sourceLog, conversationId, turnId);
       const request = parsed ? await readCopilotRequest(parsed.requestId) : undefined;
+      const websocketResponse = parsed?.requestType === 'chat' ? this.pendingWebsocketResponses.get(sourceLog) : undefined;
+      const rootTurnId = websocketResponse?.turnId ?? this.lastRootTurnByLog.get(sourceLog) ?? parsed?.turnId ?? request?.turnId;
       const generatedTitle = parsed?.feature.toLowerCase() === 'title' && isUsableConversationTitle(request?.conversationTitle) ? request.conversationTitle : undefined;
-      if (generatedTitle) this.pendingTitles.set(sourceLog, generatedTitle);
+      const persistedChat = rootTurnId ? await persistedChatForTurn(this.workspaceStoragePath(), rootTurnId) : undefined;
+      if (generatedTitle && persistedChat) {
+        await this.updateChatTitle(persistedChat.chatId, generatedTitle, parsed?.timestamp ?? line.slice(0, 23));
+      } else if (generatedTitle) {
+        this.pendingTitles.set(sourceLog, generatedTitle);
+      }
       if (parsed?.feature.toLowerCase() === 'title' && !generatedTitle) {
         const titles = this.pendingTitleRequests.get(sourceLog) ?? [];
-        titles.push({ requestId: parsed.requestId, timestamp: parsed.timestamp });
+        titles.push({ requestId: parsed.requestId, timestamp: parsed.timestamp, rootTurnId });
         this.pendingTitleRequests.set(sourceLog, titles.slice(-10));
         this.scheduleTitleRecovery(sourceLog);
       }
-      const websocketResponse = parsed?.requestType === 'chat' ? this.pendingWebsocketResponses.get(sourceLog) : undefined;
-      const activeConversationTurn = this.activeConversationTurnByLog.get(sourceLog);
-      const conversationContext = resolveConversationContext(request, parsed, websocketResponse, activeConversationTurn);
-      const chatId = conversationContext?.chatId;
-      const resolvedTurnId = conversationContext?.turnId;
+      const chatId = persistedChat?.chatId;
+      const resolvedTurnId = rootTurnId;
       const record = parsed && request?.usage ? applyCopilotUsage(parsed, request.usage, chatId) : parsed;
-      const conversationTitle = generatedTitle;
+      const conversationTitle = persistedChat?.title;
       const toolMetadata = request?.toolNames?.length ? { toolNames: request.toolNames, toolCallCount: request.toolCallCount } : {};
-      const enrichedRecord = record ? { ...record, schemaId: usageSchemaId, ...(chatId ? { chatId } : {}), ...(resolvedTurnId ? { turnId: resolvedTurnId } : {}), ...(conversationTitle ? { conversationTitle } : {}), ...toolMetadata } : record;
+      const enrichedRecord = record ? { ...record, schemaId: usageSchemaId, ...(chatId ? { chatId } : {}), ...(resolvedTurnId ? { turnId: resolvedTurnId } : {}), ...(conversationTitle ? { conversationTitle, conversationTitleSource: persistedChat?.titleSource } : {}), ...(persistedChat?.firstUserMessage ? { firstUserMessage: persistedChat.firstUserMessage } : {}), ...toolMetadata } : record;
       if (websocketResponse) this.pendingWebsocketResponses.delete(sourceLog);
       if (enrichedRecord && requestTypeOf(enrichedRecord) === 'chat' && !enrichedRecord.chatId) {
         const pendingKey = `${sourceLog}:pending`;
         this.pendingChatRequests.set(pendingKey, [...(this.pendingChatRequests.get(pendingKey) ?? []), enrichedRecord.requestId]);
+        setTimeout(() => void this.reconcileStoredRecords(), 500);
       }
       if (enrichedRecord && !this.seen.has(enrichedRecord.requestId)) {
         this.seen.add(enrichedRecord.requestId);
@@ -1112,18 +1211,20 @@ class UsageCollector implements vscode.Disposable {
     await this.onRecord();
   }
 
-  private async updateChatTitle(chatId: string, title: string, timestamp: string): Promise<boolean> {
+  private async updateChatTitle(chatId: string, title: string, timestamp: string, titleSource: 'copilot' | 'firstUserMessage' = 'copilot'): Promise<boolean> {
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (!folder) return false;
     const metadataPath = path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName);
     const chats = await readChatMetadata();
     const existing = chats.find(chat => chat.chatId === chatId);
+    if (existing?.titleSource === 'copilot' && titleSource !== 'copilot') return false;
     if (existing?.title === title) return false;
     const titleHistory = existing?.titleHistory ?? (existing?.title ? [{ title: existing.title, observedAt: existing.firstSeen }] : []);
     if (titleHistory[titleHistory.length - 1]?.title !== title) titleHistory.push({ title, observedAt: timestamp });
     const metadata: ChatMetadata = {
       chatId,
       title,
+      titleSource,
       titleHistory,
       turnIds: existing?.turnIds ?? [],
       firstSeen: existing?.firstSeen ?? timestamp,
@@ -1142,9 +1243,16 @@ class UsageCollector implements vscode.Disposable {
     const titles = this.pendingTitleRequests.get(sourceLog) ?? [];
     const chats = this.pendingNewChats.get(sourceLog) ?? [];
     if (!titles.length || !chats.length) return;
-    const remainingTitles: { requestId: string; timestamp: string }[] = [];
+    const remainingTitles: { requestId: string; timestamp: string; rootTurnId?: string }[] = [];
     for (const pendingTitle of titles) {
       const title = (await readCopilotRequest(pendingTitle.requestId))?.conversationTitle;
+      const persistedChat = pendingTitle.rootTurnId
+        ? await persistedChatForTurn(this.workspaceStoragePath(), pendingTitle.rootTurnId)
+        : undefined;
+      if (isUsableConversationTitle(title) && persistedChat) {
+        await this.updateChatTitle(persistedChat.chatId, title, pendingTitle.timestamp);
+        continue;
+      }
       const chat = chats.find(candidate => candidate.timestamp >= pendingTitle.timestamp);
       if (isUsableConversationTitle(title) && chat) {
         const changed = await this.updateChatTitle(chat.chatId, title, pendingTitle.timestamp);
