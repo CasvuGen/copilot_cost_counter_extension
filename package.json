@@ -113,8 +113,8 @@
         },
         "copilotCostCounter.showMoneyBurn": {
           "type": "boolean",
-          "default": false,
-          "markdownDescription": "Show a brief money-burn animation after a request with an estimated cost is recorded."
+          "default": true,
+          "markdownDescription": "Show a brief money-burn indicator in the VS Code status bar after a request with an estimated cost is recorded."
         },
         "copilotCostCounter.moneyBurnThresholdUsd": {
           "type": "number",

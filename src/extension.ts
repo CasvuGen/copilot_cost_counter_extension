@@ -649,7 +649,7 @@ class UsageReportProvider implements vscode.WebviewViewProvider {
   showMoneyBurn(costUsd: number | null): void {
     if (!this.view || costUsd === null || costUsd <= 0) return;
     const configuration = vscode.workspace.getConfiguration('copilotCostCounter');
-    if (!configuration.get<boolean>('showMoneyBurn', false)) return;
+    if (!configuration.get<boolean>('showMoneyBurn', true)) return;
     const thresholdUsd = configuration.get<number>('moneyBurnThresholdUsd', 0);
     const amountUsd = thresholdUsd > 0
       ? (() => {
@@ -665,6 +665,7 @@ class UsageReportProvider implements vscode.WebviewViewProvider {
     const origin = configuration.get<string>('moneyBurnOrigin', 'bottom-right');
     void this.view.webview.postMessage({ type: 'moneyBurn', amount: formatBurnMoney(amountUsd), durationMs, sizePx, origin });
   }
+
 }
 
 function escapeHtml(value: string): string {
@@ -786,6 +787,8 @@ class UsageCollector implements vscode.Disposable {
   private readonly websocketRequests = new Map<string, { chatId: string; turnId: string; startedAt: number }[]>();
   private readonly pendingWebsocketResponses = new Map<string, { chatId: string; turnId: string }>();
   private timer: ReturnType<typeof setInterval> | undefined;
+  private burnTimer: ReturnType<typeof setTimeout> | undefined;
+  private pendingMoneyBurnUsd = 0;
   private readonly seen = new Set<string>();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
 
@@ -1221,11 +1224,42 @@ class UsageCollector implements vscode.Disposable {
     await updateChatMetadata(record);
     if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp, record.turnId ? [record.turnId] : []);
     await this.onRecord(record);
-    this.status.text = record.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(record.costUsd)}`;
+    this.setStatusText(record.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(record.costUsd)}`);
+    this.showMoneyBurn(record.costUsd);
+  }
+
+  private setStatusText(text: string): void {
+    this.status.text = text;
+    this.status.color = undefined;
+  }
+
+  private showMoneyBurn(costUsd: number | null): void {
+    if (costUsd === null || costUsd <= 0) return;
+    const configuration = vscode.workspace.getConfiguration('copilotCostCounter');
+    if (!configuration.get<boolean>('showMoneyBurn', true)) return;
+    const thresholdUsd = configuration.get<number>('moneyBurnThresholdUsd', 0);
+    const amountUsd = thresholdUsd > 0
+      ? (() => {
+        this.pendingMoneyBurnUsd += costUsd;
+        const crossed = Math.floor(this.pendingMoneyBurnUsd / thresholdUsd);
+        this.pendingMoneyBurnUsd %= thresholdUsd;
+        return crossed * thresholdUsd;
+      })()
+      : costUsd;
+    if (amountUsd <= 0) return;
+    const durationMs = Math.max(100, Math.min(10000, configuration.get<number>('moneyBurnDurationMs', 2000)));
+    if (this.burnTimer) clearTimeout(this.burnTimer);
+    this.status.text = `$(flame) Burning ${formatBurnMoney(amountUsd)}`;
+    this.status.color = new vscode.ThemeColor('charts.red');
+    this.burnTimer = setTimeout(() => {
+      this.burnTimer = undefined;
+      this.setStatusText('$(pulse) Copilot usage');
+    }, durationMs);
   }
 
   dispose(): void {
     if (this.timer) clearInterval(this.timer);
+    if (this.burnTimer) clearTimeout(this.burnTimer);
     this.status.dispose();
   }
 }
