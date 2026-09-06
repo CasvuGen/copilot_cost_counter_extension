@@ -2,6 +2,23 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.74:start -->
+## [0.2.74] - 2026-09-06
+
+Compared with version 0.2.73 at commit `a0d40df2efb13d8d6896f607949e8a7451b2ad31`.
+
+### Summary
+
+- feat: update version to 0.2.73 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- feat: update money burn feature to show indicator in status bar and adjust default settings
+
+### Commits
+
+- `24ed92c` feat: update version to 0.2.73 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- `8e1a9f0` feat: update money burn feature to show indicator in status bar and adjust default settings
+
+<!-- release:0.2.74:end -->
+
 <!-- release:0.2.73:start -->
 ## [0.2.73] - 2026-09-05
 
