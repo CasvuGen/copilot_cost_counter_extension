@@ -104,6 +104,28 @@ type ReportTemplates = {
   empty: string;
 };
 
+type FileCache<T> = { value: T; size: number; modified: number };
+type PersistedChat = { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string };
+
+let usageRecordsCache: FileCache<ReportRecord[]> | undefined;
+let chatMetadataCache: FileCache<ChatMetadata[]> | undefined;
+let persistedChatsCache: { signature: string; chatsByTurn: Map<string, PersistedChat> } | undefined;
+let reportRenderCache: { records: ReportRecord[]; chats: ChatMetadata[]; html: string } | undefined;
+
+function invalidateReportCache(): void {
+  reportRenderCache = undefined;
+}
+
+function invalidateUsageRecordsCache(): void {
+  usageRecordsCache = undefined;
+  invalidateReportCache();
+}
+
+function invalidateChatMetadataCache(): void {
+  chatMetadataCache = undefined;
+  invalidateReportCache();
+}
+
 function fillTemplate(template: string, values: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key] ?? '');
 }
@@ -229,6 +251,13 @@ function requestTypeOf(record: Pick<ReportRecord, 'requestType' | 'feature'>): R
 function requestTypeLabel(record: Pick<ReportRecord, 'requestType' | 'feature'>): string {
   const type = requestTypeOf(record);
   return type === 'nextEditSuggestion' ? 'Next edit suggestion' : type === 'completion' ? 'Completion' : type === 'utility' ? 'Utility' : 'Chat';
+}
+
+function needsReconciliation(record: UsageRecord): boolean {
+  return record.schemaId !== usageSchemaId
+    || record.copilotUsage === null
+    || record.requestType === 'chat' && (!record.chatId || !record.turnId)
+    || record.requestType === 'utility' && record.feature.toLowerCase() === 'title' && !record.conversationTitle;
 }
 
 const displayNumber = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -491,9 +520,13 @@ async function readCopilotRequest(requestId: string): Promise<CopilotRequest | u
 async function readUsageRecords(): Promise<ReportRecord[]> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) return [];
+  const filePath = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
   try {
-    const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, usageFileName), 'utf8');
-    return content.split(/\r?\n/).filter(Boolean).flatMap(line => {
+    const stat = await fs.stat(filePath);
+    const cache = usageRecordsCache;
+    if (cache && cache.size === stat.size && cache.modified === stat.mtimeMs) return cache.value;
+    const content = await fs.readFile(filePath, 'utf8');
+    const records = content.split(/\r?\n/).filter(Boolean).flatMap(line => {
       try {
         const record = JSON.parse(line) as Partial<ReportRecord>;
         return typeof record.requestId === 'string' ? [{ ...record, schemaId: typeof record.schemaId === 'number' ? record.schemaId : 1 } as ReportRecord] : [];
@@ -501,6 +534,8 @@ async function readUsageRecords(): Promise<ReportRecord[]> {
         return [];
       }
     });
+    usageRecordsCache = { value: records, size: stat.size, modified: stat.mtimeMs };
+    return records;
   } catch {
     return [];
   }
@@ -509,15 +544,21 @@ async function readUsageRecords(): Promise<ReportRecord[]> {
 async function readChatMetadata(): Promise<ChatMetadata[]> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) return [];
+  const filePath = path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName);
   try {
-    const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName), 'utf8');
+    const stat = await fs.stat(filePath);
+    const cache = chatMetadataCache;
+    if (cache && cache.size === stat.size && cache.modified === stat.mtimeMs) return cache.value;
+    const content = await fs.readFile(filePath, 'utf8');
     const value = JSON.parse(content) as { schemaId?: unknown; chats?: unknown };
     if ((value.schemaId !== 1 && value.schemaId !== 2 && value.schemaId !== usageMetadataSchemaId) || !Array.isArray(value.chats)) return [];
-    return value.chats.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string').map(chat => {
+    const chats = value.chats.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string').map(chat => {
       if (isPersistedChatTitleSource(chat.titleSource)) return chat;
       const { title: _title, titleHistory: _titleHistory, titleSource: _titleSource, ...legacyChat } = chat;
       return { ...legacyChat, title: `Chat ${legacyChat.chatId.slice(0, 12)}`, titleSource: 'unavailable' as const };
     });
+    chatMetadataCache = { value: chats, size: stat.size, modified: stat.mtimeMs };
+    return chats;
   } catch {
     return [];
   }
@@ -560,21 +601,28 @@ async function persistedChatForTurn(workspaceStoragePath: string, turnId: string
 }
 
 async function persistedChatsByTurn(workspaceStoragePath: string): Promise<Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string }>> {
-  const chatsByTurn = new Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string }>();
   const chatSessionsDirectory = path.join(workspaceStoragePath, 'chatSessions');
   try {
     const entries = await fs.readdir(chatSessionsDirectory, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile() || !/\.jsonl$/i.test(entry.name)) continue;
+    const sessionEntries = entries.filter(entry => entry.isFile() && /\.jsonl$/i.test(entry.name));
+    const signatures = await Promise.all(sessionEntries.map(async entry => {
+      const stat = await fs.stat(path.join(chatSessionsDirectory, entry.name));
+      return `${entry.name}:${stat.size}:${stat.mtimeMs}`;
+    }));
+    const signature = signatures.sort().join('|');
+    if (persistedChatsCache?.signature === `${chatSessionsDirectory}:${signature}`) return persistedChatsCache.chatsByTurn;
+    const chatsByTurn = new Map<string, PersistedChat>();
+    for (const entry of sessionEntries) {
       const content = await fs.readFile(path.join(chatSessionsDirectory, entry.name), 'utf8');
       const session = persistedChatSessionFromJsonl(content);
       if (!session) continue;
       for (const turnId of session.turnIds) chatsByTurn.set(turnId, { chatId: session.chatId, ...(session.title ? { title: session.title, titleSource: session.titleSource } : {}), ...(session.firstUserMessage ? { firstUserMessage: session.firstUserMessage } : {}) });
     }
-  } catch {
+    persistedChatsCache = { signature: `${chatSessionsDirectory}:${signature}`, chatsByTurn };
     return chatsByTurn;
+  } catch {
+    return new Map();
   }
-  return chatsByTurn;
 }
 
 async function ensureChatMetadataTitles(): Promise<boolean> {
@@ -591,7 +639,10 @@ async function ensureChatMetadataTitles(): Promise<boolean> {
     changed = true;
     return { ...metadata, title: `Chat ${metadata.chatId!.slice(0, 12)}`, titleSource: 'unavailable' };
   });
-  if (changed) await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats }, null, 2)}\n`, 'utf8');
+  if (changed) {
+    await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats }, null, 2)}\n`, 'utf8');
+    invalidateChatMetadataCache();
+  }
   return changed;
 }
 
@@ -618,6 +669,7 @@ async function updateChatMetadata(record: UsageRecord): Promise<void> {
   const next = [...chats.filter(chat => chat.chatId !== record.chatId), metadata];
   await fs.mkdir(path.dirname(metadataPath), { recursive: true });
   await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: next }, null, 2)}\n`, 'utf8');
+  invalidateChatMetadataCache();
 }
 
 class UsageReportProvider implements vscode.WebviewViewProvider {
@@ -673,6 +725,7 @@ function escapeHtml(value: string): string {
 }
 
 function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMetadata[], templates: ReportTemplates): string {
+  if (reportRenderCache?.records === records && reportRenderCache.chats === chatMetadata) return reportRenderCache.html;
   const nonce = createNonce();
   const billableRecords = records.filter(record => requestTypeOf(record) !== 'utility');
   const estimated = billableRecords.filter(record => record.costKind === 'estimated' && record.costUsd !== null);
@@ -764,7 +817,7 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
   }).join('');
   const recentChats = chatGroups ? fillTemplate(templates.chatTable, { groups: chatGroups }) : empty('No chat data available from Copilot metadata.');
   const missingPricingNotice = missingPriceModels.length ? fillTemplate(templates.pricingNotice, { nonce, models: missingPriceModels.map(escapeHtml).join(', ') }) : '';
-  return fillTemplate(templates.report, {
+  const html = fillTemplate(templates.report, {
     nonce, missingPricingNotice,
     creditCards: [card('Estimated spend', formatMoney(totalUsd)), card('Credits', formatDecimal(totalCredits)), card('Requests', String(records.length)), card('Cost available', `${estimated.length} / ${billableRecords.length}`)].join(''),
     spendCharts: Object.entries(spendCharts).map(([group, chart]) => `<div class="spend-chart" data-spend-chart="${group}"${group === 'daily' ? '' : ' hidden'}>${chart}</div>`).join(''), modelBreakdown,
@@ -772,6 +825,8 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
     tokenSummary: `Prompt: ${tokenTotals.prompt.toLocaleString()} | Fresh input: ${tokenTotals.input.toLocaleString()} | Output: ${tokenTotals.output.toLocaleString()} | Cached: ${tokenTotals.cache.toLocaleString()} | Cache write: ${tokenTotals.cacheWrite.toLocaleString()}`,
     recentRequests, recentChats
   });
+  reportRenderCache = { records, chats: chatMetadata, html };
+  return html;
 }
 
 function createNonce(): string {
@@ -788,6 +843,8 @@ class UsageCollector implements vscode.Disposable {
   private readonly pendingWebsocketResponses = new Map<string, { chatId: string; turnId: string }>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private burnTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconciliationTimer: ReturnType<typeof setTimeout> | undefined;
+  private pollPromise: Promise<void> | undefined;
   private pendingMoneyBurnUsd = 0;
   private readonly seen = new Set<string>();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
@@ -892,7 +949,7 @@ class UsageCollector implements vscode.Disposable {
         return [];
       }
     });
-    const canonicalChats = await this.canonicalChatsByRequest(storedRecords);
+    const canonicalChats = await this.canonicalChatsByRequest(storedRecords.filter(needsReconciliation));
     let changed = false;
     const metadataRecords: UsageRecord[] = [];
     const updated = await Promise.all(lines.map(async line => {
@@ -922,6 +979,10 @@ class UsageCollector implements vscode.Disposable {
             recordChanged = true;
             metadataRecords.push(updated);
           }
+        }
+        if (!needsReconciliation(updated)) {
+          changed = changed || recordChanged;
+          return recordChanged ? JSON.stringify(updated) : line;
         }
         const request = await readCopilotRequest(updated.requestId);
         if (!request) {
@@ -960,6 +1021,7 @@ class UsageCollector implements vscode.Disposable {
     }));
     if (changed) {
       await fs.writeFile(output, updated.join('\n'), 'utf8');
+      invalidateUsageRecordsCache();
     }
     for (const record of metadataRecords) await updateChatMetadata(record);
     const records = updated.flatMap(line => {
@@ -973,23 +1035,7 @@ class UsageCollector implements vscode.Disposable {
   }
 
   private async loadSeenRecords(): Promise<void> {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    if (!folder) return;
-    const output = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
-    try {
-      const content = await fs.readFile(output, 'utf8');
-      for (const line of content.split(/\r?\n/)) {
-        if (!line) continue;
-        try {
-          const record = JSON.parse(line) as { requestId?: unknown };
-          if (typeof record.requestId === 'string') this.seen.add(record.requestId);
-        } catch {
-          continue;
-        }
-      }
-    } catch {
-      return;
-    }
+    for (const record of await readUsageRecords()) this.seen.add(record.requestId);
   }
 
   private schedule(): void {
@@ -1016,6 +1062,14 @@ class UsageCollector implements vscode.Disposable {
   }
 
   private async poll(): Promise<void> {
+    if (this.pollPromise) return this.pollPromise;
+    this.pollPromise = this.pollOnce().finally(() => {
+      this.pollPromise = undefined;
+    });
+    return this.pollPromise;
+  }
+
+  private async pollOnce(): Promise<void> {
     await this.resetIfOutputMissing();
     for (const sourceLog of await this.logPaths()) {
       await this.pollLog(sourceLog);
@@ -1127,13 +1181,21 @@ class UsageCollector implements vscode.Disposable {
       if (enrichedRecord && requestTypeOf(enrichedRecord) === 'chat' && !enrichedRecord.chatId) {
         const pendingKey = `${sourceLog}:pending`;
         this.pendingChatRequests.set(pendingKey, [...(this.pendingChatRequests.get(pendingKey) ?? []), enrichedRecord.requestId]);
-        setTimeout(() => void this.reconcileStoredRecords(), 500);
+        this.scheduleReconciliation();
       }
       if (enrichedRecord && !this.seen.has(enrichedRecord.requestId)) {
         this.seen.add(enrichedRecord.requestId);
         await this.append(enrichedRecord);
       }
     }
+  }
+
+  private scheduleReconciliation(): void {
+    if (this.reconciliationTimer) clearTimeout(this.reconciliationTimer);
+    this.reconciliationTimer = setTimeout(() => {
+      this.reconciliationTimer = undefined;
+      void this.reconcileStoredRecords();
+    }, 500);
   }
 
   private async resolvePendingChatRequests(key: string, chatId: string, turnId: string): Promise<void> {
@@ -1176,6 +1238,7 @@ class UsageCollector implements vscode.Disposable {
     });
     if (!changed) return;
     await fs.writeFile(output, updated.join('\n'), 'utf8');
+    invalidateUsageRecordsCache();
     const record = updated.flatMap(line => {
       try {
         const value = JSON.parse(line) as UsageRecord;
@@ -1212,6 +1275,7 @@ class UsageCollector implements vscode.Disposable {
     };
     await fs.mkdir(path.dirname(metadataPath), { recursive: true });
     await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: [...chats.filter(chat => chat.chatId !== chatId), metadata] }, null, 2)}\n`, 'utf8');
+    invalidateChatMetadataCache();
     return true;
   }
 
@@ -1221,6 +1285,7 @@ class UsageCollector implements vscode.Disposable {
     const output = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
     await fs.mkdir(path.dirname(output), { recursive: true });
     await fs.appendFile(output, `${JSON.stringify(record)}\n`, 'utf8');
+    invalidateUsageRecordsCache();
     await updateChatMetadata(record);
     if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp, record.turnId ? [record.turnId] : []);
     await this.onRecord(record);
@@ -1260,6 +1325,7 @@ class UsageCollector implements vscode.Disposable {
   dispose(): void {
     if (this.timer) clearInterval(this.timer);
     if (this.burnTimer) clearTimeout(this.burnTimer);
+    if (this.reconciliationTimer) clearTimeout(this.reconciliationTimer);
     this.status.dispose();
   }
 }
