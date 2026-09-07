@@ -2,6 +2,23 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.75:start -->
+## [0.2.75] - 2026-09-07
+
+Compared with version 0.2.74 at commit `8e1a9f06142b060b90269811a0f8bb78c48ff89f`.
+
+### Summary
+
+- feat: update version to 0.2.74 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- feat: implement caching for usage records and chat metadata, add reconciliation logic
+
+### Commits
+
+- `a9fdb59` feat: update version to 0.2.74 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- `d95c626` feat: implement caching for usage records and chat metadata, add reconciliation logic
+
+<!-- release:0.2.75:end -->
+
 <!-- release:0.2.74:start -->
 ## [0.2.74] - 2026-09-06
 
