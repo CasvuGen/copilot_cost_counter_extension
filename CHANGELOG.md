@@ -2,6 +2,17 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.76:start -->
+## [0.2.76] - 2026-10-02
+
+Compared with version 0.2.75 at commit `3b14e8bc101ffe45b5c78a2826966433239a78d2`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.76:end -->
+
 <!-- release:0.2.75:start -->
 ## [0.2.75] - 2026-09-07
 
