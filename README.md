@@ -6,7 +6,7 @@
 
 Track GitHub Copilot request activity in VS Code with workspace-local cost, AI-credit, token, model, feature, and conversation reports.
 
-Copilot Cost Counter is a companion extension for GitHub Copilot for VS Code. It reads completed request entries from Copilot's output log and records summaries in the current workspace. It does not send usage data to a separate service.
+Copilot Cost Counter is a companion extension for GitHub Copilot for VS Code. By default, it reads completed request entries from Copilot's output log; an optional structured debug-log source can read Copilot's recorded token spans and existing history. It records summaries in the current workspace and does not send usage data to a separate service.
 
 > **Important:** This extension is not affiliated with or endorsed by GitHub or Microsoft. Cost values are estimates unless Copilot provides an authoritative AI-credit total. Read [Recorded Data And Limits](#recorded-data-and-limits) before relying on the figures for billing decisions.
 
@@ -29,7 +29,7 @@ The values shown in these screenshots are example data and do not represent a bi
 ## Features
 
 - Workspace-local spend and AI-credit totals
-- Token totals for prompt, fresh input, cached input, cache writes, and output
+- Token totals for prompt, fresh input, cached input, cache writes, output, and cache hit rate
 - Spend charts grouped by day, conversation, or Copilot feature
 - Model breakdown and recent request activity
 - Conversation and turn grouping when Copilot exposes reliable IDs
@@ -60,7 +60,15 @@ Restart or reload VS Code after installation. Once published, the extension can 
 
 ## Privacy
 
-The extension stores only request metadata and calculated usage summaries in `.copilot/usage.jsonl` and `.copilot/usage_metadata.json` inside the current workspace. It deliberately does not persist prompts, responses, tool arguments, or raw Copilot request documents. Request IDs, model names, feature names, timestamps, token counts, tool names, chat titles, and conversation IDs may still be sensitive in some workspaces. Keep the `.copilot` directory private and do not commit it to a public repository.
+The extension stores only request metadata and calculated usage summaries in `.copilot/usage.jsonl`, `.copilot/usage.debug.jsonl`, and `.copilot/usage_metadata.json` inside the current workspace. It deliberately does not persist prompts, responses, tool arguments, or raw Copilot request documents. Request IDs, model names, feature names, timestamps, token counts, tool names, chat titles, and conversation IDs may still be sensitive in some workspaces. Keep the `.copilot` directory private and do not commit it to a public repository.
+
+## Measurement Source
+
+`copilotCostCounter.logSource` defaults to `outputLog`, which records new requests from Copilot's extension-host output log and is compatible with the extension's existing VS Code support range. Set it to `debugLogs` to read Copilot Chat's structured `debug-logs` JSONL files instead. Enable Copilot Chat file logging with `github.copilot.chat.agentDebugLog.fileLogging.enabled` before selecting this source. It can import existing token history and use Copilot's recorded AI-unit values, but relies on an undocumented format that may change.
+
+The report reads only the ledger for the selected source: `.copilot/usage.jsonl` for `outputLog` or `.copilot/usage.debug.jsonl` for `debugLogs`. Switching sources does not merge or double-count the ledgers. The structured reader persists usage fields only; it does not store prompt or response text or absolute debug-log paths. Calls found in title and categorization sidecar logs are retained as utility records and excluded from estimated spend totals. Chat titles and turn associations are not currently joined in this mode.
+
+The Tokens tab's cache hit rate is cached input tokens divided by prompt tokens across the selected ledger. It is unavailable when prompt-token counts are missing and does not estimate which parts of the prompt came from history, system instructions, or tool schemas.
 
 ## Configure The Log
 
@@ -69,7 +77,7 @@ The `copilotCostCounter.logPath` setting is intentionally empty by default. An e
 1. Run `Copilot Cost Counter: Choose Output Log` and select the log file.
 2. Set `copilotCostCounter.logPath` in workspace settings. Relative paths are resolved from the first workspace folder; absolute paths are accepted.
 
-The extension starts at the end of logs that already exist when it activates, then records each newly completed `ccreq` request once. This prevents extension reinstalls or deletion of `.copilot/usage.jsonl` from replaying historical VS Code logs. Use `Copilot Cost Counter: Open Workspace Usage` to open `.copilot/usage.jsonl`.
+In the default `outputLog` mode, the extension starts at the end of logs that already exist when it activates, then records each newly completed `ccreq` request once. This prevents extension reinstalls or deletion of `.copilot/usage.jsonl` from replaying historical VS Code logs. The `debugLogs` mode instead reads existing structured history incrementally. Use `Copilot Cost Counter: Open Workspace Usage` to open the selected source's ledger.
 
 Use the Usage Report view title menu for Refresh and Open Workspace Usage. The gear button beside that menu opens the extension settings.
 
@@ -82,6 +90,7 @@ After installation, select the **Copilot Cost Counter** graph icon in the Activi
 - Estimated USD spend and AI credits
 - Request count and records with available cost data
 - Estimated spend grouped by day, conversation, or Copilot feature
+- Cache hit rate from recorded prompt and cached-token totals
 - Cost and request counts by model
 - The twenty most recent requests
 

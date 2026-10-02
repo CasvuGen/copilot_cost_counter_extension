@@ -100,16 +100,25 @@
     "configuration": {
       "title": "Copilot Cost Counter",
       "properties": {
+        "copilotCostCounter.logSource": {
+          "type": "string",
+          "enum": [
+            "outputLog",
+            "debugLogs"
+          ],
+          "default": "outputLog",
+          "markdownDescription": "Choose the request source. `outputLog` is broadly compatible and records new requests; `debugLogs` parses Copilot's structured chat logs and can import their existing history. Debug logs must be enabled in Copilot Chat."
+        },
         "copilotCostCounter.logPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Optional path override for the GitHub Copilot output log. Leave empty (recommended) to discover the active VS Code window's Copilot Chat logs automatically; the discovered path is not stored in this setting."
+          "markdownDescription": "Optional path override used only with `logSource: outputLog`. Leave empty (recommended) to discover the active VS Code window's Copilot Chat logs automatically; the discovered path is not stored in this setting."
         },
         "copilotCostCounter.pollIntervalMs": {
           "type": "number",
           "default": 1000,
           "minimum": 250,
-          "markdownDescription": "How often to check the Copilot output log for completed requests."
+          "markdownDescription": "How often to check the selected Copilot log source for completed requests."
         },
         "copilotCostCounter.showMoneyBurn": {
           "type": "boolean",
