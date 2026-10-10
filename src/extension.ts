@@ -3,24 +3,25 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
+import { parseCopilotDebugSpan } from './copilotDebugUsage';
+import { takeCompleteLines, type IncrementalLineState } from './incrementalLines';
+import { parseOutputLogUsageLine } from './outputLogUsage';
+import { createPricingLookup, normalizeModel, type ModelPricing, type PricingOverrides, type PricingRow } from './pricing';
+import { formatCacheHitRate } from './usageMetrics';
 import generatedPricing from './pricing.generated.json';
 
 const usageDirectory = '.copilot';
 const usageFileName = 'usage.jsonl';
+const debugUsageFileName = 'usage.debug.jsonl';
 const usageMetadataFileName = 'usage_metadata.json';
 const usageMetadataSchemaId = 3;
 const usageSchemaId = 7;
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
 
-type ModelPricing = { input: number; cachedInput?: number; cacheWrite?: number; output: number };
-type PricingOverrides = Record<string, Partial<ModelPricing>>;
-type GeneratedPricingRow = { model: string; tier: string; since: string; input: number; cachedInput?: number; cacheWrite?: number; output: number };
+type GeneratedPricingRow = PricingRow & { since: string };
 type RequestType = 'chat' | 'completion' | 'nextEditSuggestion' | 'utility';
 const generatedRows = generatedPricing as GeneratedPricingRow[];
-const fallbackPricing: Record<string, ModelPricing> = Object.fromEntries(
-  generatedRows.filter(row => row.tier.toLowerCase() === 'default' || !generatedRows.some(other => other.model === row.model && other.tier.toLowerCase() === 'default')).map(row => [row.model.toLowerCase().replace(/[^a-z0-9.]+/g, '-'), row])
-);
-const pricing: Record<string, ModelPricing> = fallbackPricing;
+const generatedPricingFor = createPricingLookup(generatedRows);
 const pricingUpdatedAt: string | null = generatedRows.length > 0 ? new Date().toISOString() : null;
 
 type UsageRecord = {
@@ -103,6 +104,36 @@ type ReportTemplates = {
   pricingNotice: string;
   empty: string;
 };
+
+type FileCache<T> = { value: T; size: number; modified: number; filePath: string };
+type LogOffset = IncrementalLineState & { offset: number };
+type PersistedChat = { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string };
+type UsageCollectorLike = vscode.Disposable & { start(): Promise<void>; refresh(): Promise<void> };
+
+let usageRecordsCache: FileCache<ReportRecord[]> | undefined;
+let chatMetadataCache: FileCache<ChatMetadata[]> | undefined;
+let persistedChatsCache: { signature: string; chatsByTurn: Map<string, PersistedChat> } | undefined;
+let reportRenderCache: { records: ReportRecord[]; chats: ChatMetadata[]; html: string } | undefined;
+
+function invalidateReportCache(): void {
+  reportRenderCache = undefined;
+}
+
+function invalidateUsageRecordsCache(): void {
+  usageRecordsCache = undefined;
+  invalidateReportCache();
+}
+
+function invalidateChatMetadataCache(): void {
+  chatMetadataCache = undefined;
+  invalidateReportCache();
+}
+
+function activeUsageFileName(): string {
+  return vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'outputLog') === 'debugLogs'
+    ? debugUsageFileName
+    : usageFileName;
+}
 
 function fillTemplate(template: string, values: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key] ?? '');
@@ -199,16 +230,6 @@ async function loadReportTemplates(extensionPath: string): Promise<ReportTemplat
   return { report, card, dailyBar, dailyChart, modelRow, recentRow, recentTable, chatGroup, turnGroup, chatRow, chatTable, pricingNotice, empty };
 }
 
-function normalizeModel(model: string): string {
-  return model.toLowerCase().replace(/\[[^\]]+\]/g, '').replace(/[^a-z0-9.]+/g, '-').replace(/^-|-$/g, '');
-}
-
-function numberFromLine(line: string, names: string[]): number | undefined {
-  const namePattern = names.join('|');
-  const match = line.match(new RegExp(`(?:${namePattern})[=:]\\s*(\\d+)`, 'i'));
-  return match ? Number(match[1]) : undefined;
-}
-
 function usageTokenCount(usage: CopilotUsage, tokenType: string): number | undefined {
   return usage.copilot_usage?.token_details?.find(detail => detail.token_type === tokenType && typeof detail.token_count === 'number')?.token_count;
 }
@@ -229,6 +250,13 @@ function requestTypeOf(record: Pick<ReportRecord, 'requestType' | 'feature'>): R
 function requestTypeLabel(record: Pick<ReportRecord, 'requestType' | 'feature'>): string {
   const type = requestTypeOf(record);
   return type === 'nextEditSuggestion' ? 'Next edit suggestion' : type === 'completion' ? 'Completion' : type === 'utility' ? 'Utility' : 'Chat';
+}
+
+function needsReconciliation(record: UsageRecord): boolean {
+  return record.schemaId !== usageSchemaId
+    || record.copilotUsage === null
+    || record.requestType === 'chat' && (!record.chatId || !record.turnId)
+    || record.requestType === 'utility' && record.feature.toLowerCase() === 'title' && !record.conversationTitle;
 }
 
 const displayNumber = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -278,21 +306,9 @@ function formatToolUsage(record: Pick<ReportRecord, 'toolNames' | 'toolCallCount
   return ` · ${record.toolCallCount} tool${record.toolCallCount === 1 ? '' : 's'}${names}`;
 }
 
-function configuredPricing(): Record<string, ModelPricing> {
+function configuredPricing(model: string, inputTokens: number | null): ModelPricing | undefined {
   const configured = vscode.workspace.getConfiguration('copilotCostCounter').get<PricingOverrides>('modelPricingOverrides', {});
-  const overrides: Record<string, ModelPricing> = { ...pricing };
-  for (const [model, value] of Object.entries(configured)) {
-    const normalized = normalizeModel(model);
-    const current = overrides[normalized];
-    if (typeof value.input !== 'number' || typeof value.output !== 'number') continue;
-    overrides[normalized] = {
-      input: value.input,
-      output: value.output,
-      cachedInput: typeof value.cachedInput === 'number' ? value.cachedInput : current?.cachedInput,
-      cacheWrite: typeof value.cacheWrite === 'number' ? value.cacheWrite : current?.cacheWrite
-    };
-  }
-  return overrides;
+  return generatedPricingFor(model, inputTokens, configured);
 }
 
 async function findCopilotLogs(directory: string, depth = 0): Promise<string[]> {
@@ -363,17 +379,11 @@ function timestampFromLine(line: string): number | undefined {
 }
 
 function parseLine(line: string, sourceLog: string, chatId?: string, turnId?: string): UsageRecord | undefined {
-  const match = line.match(/ccreq:([^\s.]+)\.copilotmd\s+\|\s+(success|cancelled|failed)\s+\|\s+([^|]+?)\s+\|\s+(\d+)ms\s+\|\s+\[([^\]]+)\]/i);
-  if (!match || match[2].toLowerCase() !== 'success') {
-    return undefined;
-  }
+  const parsed = parseOutputLogUsageLine(line);
+  if (!parsed) return undefined;
 
-  const model = match[3].trim();
-  const promptTokens = numberFromLine(line, ['prompt_tokens', 'promptTokenCount', 'input_tokens']) ?? null;
-  const outputTokens = numberFromLine(line, ['completion_tokens', 'responseTokenCount', 'output_tokens']) ?? null;
-  const cacheTokens = numberFromLine(line, ['cached_tokens', 'cacheTokens']) ?? null;
-  const cacheWriteTokens = numberFromLine(line, ['cache_write_tokens', 'cacheWriteTokens']) ?? null;
-  const modelPricing = configuredPricing()[normalizeModel(model)];
+  const { requestId, timestamp, model, feature, durationMs, promptTokens, outputTokens, cacheTokens, cacheWriteTokens } = parsed;
+  const modelPricing = configuredPricing(model, promptTokens);
   const freshInputTokens = promptTokens === null ? null : Math.max(0, promptTokens - (cacheTokens ?? 0));
   const inputCostUsd = modelPricing && freshInputTokens !== null ? freshInputTokens * modelPricing.input / 1_000_000 : null;
   const outputCostUsd = modelPricing && outputTokens !== null ? outputTokens * modelPricing.output / 1_000_000 : null;
@@ -387,15 +397,15 @@ function parseLine(line: string, sourceLog: string, chatId?: string, turnId?: st
 
   return {
     schemaId: usageSchemaId,
-    timestamp: line.slice(0, 23),
+    timestamp,
     sourceLog,
-    requestId: match[1],
+    requestId,
     chatId,
     turnId,
     model,
-    feature: match[5],
-    requestType: classifyRequestType(match[5]),
-    durationMs: Number(match[4]),
+    feature,
+    requestType: classifyRequestType(feature),
+    durationMs,
     promptTokens,
     freshInputTokens,
     outputTokens,
@@ -431,7 +441,7 @@ function applyCopilotUsage(record: UsageRecord, usage: CopilotUsage, chatId = re
   const cacheWriteTokens = typeof usage.prompt_tokens_details?.cache_write_tokens === 'number'
     ? usage.prompt_tokens_details.cache_write_tokens
     : usageTokenCount(usage, 'cache_write') ?? record.cacheWriteTokens;
-  const modelPricing = configuredPricing()[normalizeModel(record.model)];
+  const modelPricing = configuredPricing(record.model, promptTokens);
   const freshInputTokens = promptTokens === null ? null : Math.max(0, promptTokens - (cacheTokens ?? 0));
   const inputCostUsd = modelPricing && freshInputTokens !== null ? freshInputTokens * modelPricing.input / 1_000_000 : null;
   const outputCostUsd = modelPricing && outputTokens !== null ? outputTokens * modelPricing.output / 1_000_000 : null;
@@ -491,9 +501,13 @@ async function readCopilotRequest(requestId: string): Promise<CopilotRequest | u
 async function readUsageRecords(): Promise<ReportRecord[]> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) return [];
+  const filePath = path.join(folder.uri.fsPath, usageDirectory, activeUsageFileName());
   try {
-    const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, usageFileName), 'utf8');
-    return content.split(/\r?\n/).filter(Boolean).flatMap(line => {
+    const stat = await fs.stat(filePath);
+    const cache = usageRecordsCache;
+    if (cache && cache.filePath === filePath && cache.size === stat.size && cache.modified === stat.mtimeMs) return cache.value;
+    const content = await fs.readFile(filePath, 'utf8');
+    const records = content.split(/\r?\n/).filter(Boolean).flatMap(line => {
       try {
         const record = JSON.parse(line) as Partial<ReportRecord>;
         return typeof record.requestId === 'string' ? [{ ...record, schemaId: typeof record.schemaId === 'number' ? record.schemaId : 1 } as ReportRecord] : [];
@@ -501,6 +515,8 @@ async function readUsageRecords(): Promise<ReportRecord[]> {
         return [];
       }
     });
+    usageRecordsCache = { value: records, size: stat.size, modified: stat.mtimeMs, filePath };
+    return records;
   } catch {
     return [];
   }
@@ -509,15 +525,21 @@ async function readUsageRecords(): Promise<ReportRecord[]> {
 async function readChatMetadata(): Promise<ChatMetadata[]> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) return [];
+  const filePath = path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName);
   try {
-    const content = await fs.readFile(path.join(folder.uri.fsPath, usageDirectory, usageMetadataFileName), 'utf8');
+    const stat = await fs.stat(filePath);
+    const cache = chatMetadataCache;
+    if (cache && cache.filePath === filePath && cache.size === stat.size && cache.modified === stat.mtimeMs) return cache.value;
+    const content = await fs.readFile(filePath, 'utf8');
     const value = JSON.parse(content) as { schemaId?: unknown; chats?: unknown };
     if ((value.schemaId !== 1 && value.schemaId !== 2 && value.schemaId !== usageMetadataSchemaId) || !Array.isArray(value.chats)) return [];
-    return value.chats.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string').map(chat => {
+    const chats = value.chats.filter((chat): chat is ChatMetadata => typeof chat === 'object' && chat !== null && typeof (chat as ChatMetadata).chatId === 'string').map(chat => {
       if (isPersistedChatTitleSource(chat.titleSource)) return chat;
       const { title: _title, titleHistory: _titleHistory, titleSource: _titleSource, ...legacyChat } = chat;
       return { ...legacyChat, title: `Chat ${legacyChat.chatId.slice(0, 12)}`, titleSource: 'unavailable' as const };
     });
+    chatMetadataCache = { value: chats, size: stat.size, modified: stat.mtimeMs, filePath };
+    return chats;
   } catch {
     return [];
   }
@@ -560,21 +582,28 @@ async function persistedChatForTurn(workspaceStoragePath: string, turnId: string
 }
 
 async function persistedChatsByTurn(workspaceStoragePath: string): Promise<Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string }>> {
-  const chatsByTurn = new Map<string, { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string }>();
   const chatSessionsDirectory = path.join(workspaceStoragePath, 'chatSessions');
   try {
     const entries = await fs.readdir(chatSessionsDirectory, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile() || !/\.jsonl$/i.test(entry.name)) continue;
+    const sessionEntries = entries.filter(entry => entry.isFile() && /\.jsonl$/i.test(entry.name));
+    const signatures = await Promise.all(sessionEntries.map(async entry => {
+      const stat = await fs.stat(path.join(chatSessionsDirectory, entry.name));
+      return `${entry.name}:${stat.size}:${stat.mtimeMs}`;
+    }));
+    const signature = signatures.sort().join('|');
+    if (persistedChatsCache?.signature === `${chatSessionsDirectory}:${signature}`) return persistedChatsCache.chatsByTurn;
+    const chatsByTurn = new Map<string, PersistedChat>();
+    for (const entry of sessionEntries) {
       const content = await fs.readFile(path.join(chatSessionsDirectory, entry.name), 'utf8');
       const session = persistedChatSessionFromJsonl(content);
       if (!session) continue;
       for (const turnId of session.turnIds) chatsByTurn.set(turnId, { chatId: session.chatId, ...(session.title ? { title: session.title, titleSource: session.titleSource } : {}), ...(session.firstUserMessage ? { firstUserMessage: session.firstUserMessage } : {}) });
     }
-  } catch {
+    persistedChatsCache = { signature: `${chatSessionsDirectory}:${signature}`, chatsByTurn };
     return chatsByTurn;
+  } catch {
+    return new Map();
   }
-  return chatsByTurn;
 }
 
 async function ensureChatMetadataTitles(): Promise<boolean> {
@@ -591,7 +620,10 @@ async function ensureChatMetadataTitles(): Promise<boolean> {
     changed = true;
     return { ...metadata, title: `Chat ${metadata.chatId!.slice(0, 12)}`, titleSource: 'unavailable' };
   });
-  if (changed) await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats }, null, 2)}\n`, 'utf8');
+  if (changed) {
+    await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats }, null, 2)}\n`, 'utf8');
+    invalidateChatMetadataCache();
+  }
   return changed;
 }
 
@@ -618,6 +650,7 @@ async function updateChatMetadata(record: UsageRecord): Promise<void> {
   const next = [...chats.filter(chat => chat.chatId !== record.chatId), metadata];
   await fs.mkdir(path.dirname(metadataPath), { recursive: true });
   await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: next }, null, 2)}\n`, 'utf8');
+  invalidateChatMetadataCache();
 }
 
 class UsageReportProvider implements vscode.WebviewViewProvider {
@@ -673,6 +706,7 @@ function escapeHtml(value: string): string {
 }
 
 function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMetadata[], templates: ReportTemplates): string {
+  if (reportRenderCache?.records === records && reportRenderCache.chats === chatMetadata) return reportRenderCache.html;
   const nonce = createNonce();
   const billableRecords = records.filter(record => requestTypeOf(record) !== 'utility');
   const estimated = billableRecords.filter(record => record.costKind === 'estimated' && record.costUsd !== null);
@@ -683,6 +717,7 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
     cache: totals.cache + (record.cacheTokens ?? 0), cacheWrite: totals.cacheWrite + (record.cacheWriteTokens ?? 0)
   }), { prompt: 0, input: 0, output: 0, cache: 0, cacheWrite: 0 });
   const tokenRecords = records.filter(record => record.promptTokens !== null || record.outputTokens !== null || record.cacheTokens !== null || record.cacheWriteTokens !== null).length;
+  const cacheHitRate = formatCacheHitRate(tokenTotals.prompt, tokenTotals.cache);
   const missingPriceModels = [...new Set(billableRecords.filter(record => (record.promptTokens !== null || record.outputTokens !== null || record.cacheTokens !== null || record.cacheWriteTokens !== null) && (record.inputRateUsdPerMillion === null || record.outputRateUsdPerMillion === null)).map(record => record.model))];
   const byDay = new Map<string, number>();
   const byChat = new Map<string, number>();
@@ -764,14 +799,16 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
   }).join('');
   const recentChats = chatGroups ? fillTemplate(templates.chatTable, { groups: chatGroups }) : empty('No chat data available from Copilot metadata.');
   const missingPricingNotice = missingPriceModels.length ? fillTemplate(templates.pricingNotice, { nonce, models: missingPriceModels.map(escapeHtml).join(', ') }) : '';
-  return fillTemplate(templates.report, {
+  const html = fillTemplate(templates.report, {
     nonce, missingPricingNotice,
     creditCards: [card('Estimated spend', formatMoney(totalUsd)), card('Credits', formatDecimal(totalCredits)), card('Requests', String(records.length)), card('Cost available', `${estimated.length} / ${billableRecords.length}`)].join(''),
     spendCharts: Object.entries(spendCharts).map(([group, chart]) => `<div class="spend-chart" data-spend-chart="${group}"${group === 'daily' ? '' : ' hidden'}>${chart}</div>`).join(''), modelBreakdown,
-    tokenCards: [card('Requests', String(records.length)), card('Tokens recorded', `${tokenRecords} / ${records.length}`), card('Input tokens', tokenTotals.input.toLocaleString()), card('Output tokens', tokenTotals.output.toLocaleString()), card('Cached tokens', tokenTotals.cache.toLocaleString()), card('Cache-write tokens', tokenTotals.cacheWrite.toLocaleString())].join(''),
+    tokenCards: [card('Requests', String(records.length)), card('Tokens recorded', `${tokenRecords} / ${records.length}`), card('Input tokens', tokenTotals.input.toLocaleString()), card('Output tokens', tokenTotals.output.toLocaleString()), card('Cached tokens', tokenTotals.cache.toLocaleString()), card('Cache hit rate', cacheHitRate), card('Cache-write tokens', tokenTotals.cacheWrite.toLocaleString())].join(''),
     tokenSummary: `Prompt: ${tokenTotals.prompt.toLocaleString()} | Fresh input: ${tokenTotals.input.toLocaleString()} | Output: ${tokenTotals.output.toLocaleString()} | Cached: ${tokenTotals.cache.toLocaleString()} | Cache write: ${tokenTotals.cacheWrite.toLocaleString()}`,
     recentRequests, recentChats
   });
+  reportRenderCache = { records, chats: chatMetadata, html };
+  return html;
 }
 
 function createNonce(): string {
@@ -779,7 +816,7 @@ function createNonce(): string {
 }
 
 class UsageCollector implements vscode.Disposable {
-  private readonly offsets = new Map<string, number>();
+  private readonly offsets = new Map<string, LogOffset>();
   private readonly pendingChatRequests = new Map<string, string[]>();
   private readonly conversationTurns = new Map<string, { chatId: string; turnId: string }>();
   private readonly parentTurnBySubagentRequest = new Map<string, string>();
@@ -788,9 +825,13 @@ class UsageCollector implements vscode.Disposable {
   private readonly pendingWebsocketResponses = new Map<string, { chatId: string; turnId: string }>();
   private timer: ReturnType<typeof setInterval> | undefined;
   private burnTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconciliationTimer: ReturnType<typeof setTimeout> | undefined;
+  private pollPromise: Promise<void> | undefined;
   private pendingMoneyBurnUsd = 0;
   private readonly seen = new Set<string>();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
+  private readonly maxLogReadBytes = 4 * 1024 * 1024;
+  private readonly logReadChunkBytes = 1024 * 1024;
 
   constructor(private readonly context: vscode.ExtensionContext, private readonly onRecord: (record?: UsageRecord) => void | Promise<void>) {
     this.status.command = 'copilotCostCounter.openUsage';
@@ -892,7 +933,7 @@ class UsageCollector implements vscode.Disposable {
         return [];
       }
     });
-    const canonicalChats = await this.canonicalChatsByRequest(storedRecords);
+    const canonicalChats = await this.canonicalChatsByRequest(storedRecords.filter(needsReconciliation));
     let changed = false;
     const metadataRecords: UsageRecord[] = [];
     const updated = await Promise.all(lines.map(async line => {
@@ -922,6 +963,10 @@ class UsageCollector implements vscode.Disposable {
             recordChanged = true;
             metadataRecords.push(updated);
           }
+        }
+        if (!needsReconciliation(updated)) {
+          changed = changed || recordChanged;
+          return recordChanged ? JSON.stringify(updated) : line;
         }
         const request = await readCopilotRequest(updated.requestId);
         if (!request) {
@@ -960,6 +1005,7 @@ class UsageCollector implements vscode.Disposable {
     }));
     if (changed) {
       await fs.writeFile(output, updated.join('\n'), 'utf8');
+      invalidateUsageRecordsCache();
     }
     for (const record of metadataRecords) await updateChatMetadata(record);
     const records = updated.flatMap(line => {
@@ -973,23 +1019,7 @@ class UsageCollector implements vscode.Disposable {
   }
 
   private async loadSeenRecords(): Promise<void> {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    if (!folder) return;
-    const output = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
-    try {
-      const content = await fs.readFile(output, 'utf8');
-      for (const line of content.split(/\r?\n/)) {
-        if (!line) continue;
-        try {
-          const record = JSON.parse(line) as { requestId?: unknown };
-          if (typeof record.requestId === 'string') this.seen.add(record.requestId);
-        } catch {
-          continue;
-        }
-      }
-    } catch {
-      return;
-    }
+    for (const record of await readUsageRecords()) this.seen.add(record.requestId);
   }
 
   private schedule(): void {
@@ -1008,7 +1038,7 @@ class UsageCollector implements vscode.Disposable {
   private async initializeLogOffsets(): Promise<void> {
     for (const sourceLog of await this.logPaths()) {
       try {
-        this.offsets.set(sourceLog, (await fs.stat(sourceLog)).size);
+        this.offsets.set(sourceLog, { offset: (await fs.stat(sourceLog)).size, remainder: Buffer.alloc(0) });
       } catch {
         continue;
       }
@@ -1016,6 +1046,14 @@ class UsageCollector implements vscode.Disposable {
   }
 
   private async poll(): Promise<void> {
+    if (this.pollPromise) return this.pollPromise;
+    this.pollPromise = this.pollOnce().finally(() => {
+      this.pollPromise = undefined;
+    });
+    return this.pollPromise;
+  }
+
+  private async pollOnce(): Promise<void> {
     await this.resetIfOutputMissing();
     for (const sourceLog of await this.logPaths()) {
       await this.pollLog(sourceLog);
@@ -1039,28 +1077,36 @@ class UsageCollector implements vscode.Disposable {
   }
 
   private async pollLog(sourceLog: string): Promise<void> {
-    let text: string;
+    const lines: string[] = [];
     try {
       const stat = await fs.stat(sourceLog);
       if (!this.offsets.has(sourceLog)) {
-        this.offsets.set(sourceLog, stat.size);
+        this.offsets.set(sourceLog, { offset: stat.size, remainder: Buffer.alloc(0) });
         return;
       }
-      const offset = this.offsets.get(sourceLog) as number;
-      const buffer = await fs.readFile(sourceLog);
-      const start = stat.size < offset ? 0 : offset;
-      text = buffer.subarray(start).toString('utf8');
-      this.offsets.set(sourceLog, buffer.length);
+      const state = this.offsets.get(sourceLog) as LogOffset;
+      if (stat.size < state.offset) {
+        state.offset = 0;
+        state.remainder = Buffer.alloc(0);
+      }
+      const handle = await fs.open(sourceLog, 'r');
+      try {
+        const end = Math.min(stat.size, state.offset + this.maxLogReadBytes);
+        while (state.offset < end) {
+          const size = Math.min(this.logReadChunkBytes, end - state.offset);
+          const buffer = Buffer.alloc(size);
+          const { bytesRead } = await handle.read(buffer, 0, size, state.offset);
+          if (bytesRead === 0) break;
+          state.offset += bytesRead;
+          lines.push(...takeCompleteLines(state, buffer.subarray(0, bytesRead)));
+        }
+      } finally {
+        await handle.close();
+      }
     } catch {
       return;
     }
 
-    const lines = text.split(/\r?\n/);
-    if (lines.length > 1) {
-      const partialLine = lines.pop() ?? '';
-      const currentOffset = this.offsets.get(sourceLog) ?? 0;
-      this.offsets.set(sourceLog, currentOffset - Buffer.byteLength(partialLine, 'utf8'));
-    }
     for (const line of lines) {
       const voiceProgressLoop = voiceProgressLoopFromLine(line);
       if (voiceProgressLoop?.isSubagent) {
@@ -1127,13 +1173,21 @@ class UsageCollector implements vscode.Disposable {
       if (enrichedRecord && requestTypeOf(enrichedRecord) === 'chat' && !enrichedRecord.chatId) {
         const pendingKey = `${sourceLog}:pending`;
         this.pendingChatRequests.set(pendingKey, [...(this.pendingChatRequests.get(pendingKey) ?? []), enrichedRecord.requestId]);
-        setTimeout(() => void this.reconcileStoredRecords(), 500);
+        this.scheduleReconciliation();
       }
       if (enrichedRecord && !this.seen.has(enrichedRecord.requestId)) {
         this.seen.add(enrichedRecord.requestId);
         await this.append(enrichedRecord);
       }
     }
+  }
+
+  private scheduleReconciliation(): void {
+    if (this.reconciliationTimer) clearTimeout(this.reconciliationTimer);
+    this.reconciliationTimer = setTimeout(() => {
+      this.reconciliationTimer = undefined;
+      void this.reconcileStoredRecords();
+    }, 500);
   }
 
   private async resolvePendingChatRequests(key: string, chatId: string, turnId: string): Promise<void> {
@@ -1176,6 +1230,7 @@ class UsageCollector implements vscode.Disposable {
     });
     if (!changed) return;
     await fs.writeFile(output, updated.join('\n'), 'utf8');
+    invalidateUsageRecordsCache();
     const record = updated.flatMap(line => {
       try {
         const value = JSON.parse(line) as UsageRecord;
@@ -1212,6 +1267,7 @@ class UsageCollector implements vscode.Disposable {
     };
     await fs.mkdir(path.dirname(metadataPath), { recursive: true });
     await fs.writeFile(metadataPath, `${JSON.stringify({ schemaId: usageMetadataSchemaId, chats: [...chats.filter(chat => chat.chatId !== chatId), metadata] }, null, 2)}\n`, 'utf8');
+    invalidateChatMetadataCache();
     return true;
   }
 
@@ -1221,6 +1277,7 @@ class UsageCollector implements vscode.Disposable {
     const output = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
     await fs.mkdir(path.dirname(output), { recursive: true });
     await fs.appendFile(output, `${JSON.stringify(record)}\n`, 'utf8');
+    invalidateUsageRecordsCache();
     await updateChatMetadata(record);
     if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp, record.turnId ? [record.turnId] : []);
     await this.onRecord(record);
@@ -1260,6 +1317,193 @@ class UsageCollector implements vscode.Disposable {
   dispose(): void {
     if (this.timer) clearInterval(this.timer);
     if (this.burnTimer) clearTimeout(this.burnTimer);
+    if (this.reconciliationTimer) clearTimeout(this.reconciliationTimer);
+    this.status.dispose();
+  }
+}
+
+function usageRecordFromDebugSpan(span: NonNullable<ReturnType<typeof parseCopilotDebugSpan>>, sourceLog: string, sessionId: string): UsageRecord {
+  const sidecarName = path.basename(sourceLog).toLowerCase();
+  const feature = sidecarName.startsWith('title-') ? 'title' : sidecarName.startsWith('categorization-') ? 'utility/categorization' : 'chat';
+  const nanoAiu = span.nanoAiu;
+  const usage: CopilotUsage = {
+    prompt_tokens: span.inputTokens,
+    completion_tokens: span.outputTokens,
+    total_tokens: span.inputTokens + span.outputTokens,
+    prompt_tokens_details: { cached_tokens: span.cachedTokens },
+    ...(nanoAiu === undefined ? {} : { copilot_usage: { total_nano_aiu: nanoAiu } })
+  };
+  const record: UsageRecord = {
+    schemaId: usageSchemaId,
+    timestamp: new Date(span.timestamp).toISOString(),
+    sourceLog: ['copilot-debug', sessionId, path.basename(sourceLog)].join('/'),
+    requestId: `debug:${sessionId}:${span.key}`,
+    model: span.model,
+    feature,
+    requestType: feature === 'chat' ? 'chat' : 'utility',
+    durationMs: 0,
+    promptTokens: span.inputTokens,
+    freshInputTokens: null,
+    outputTokens: span.outputTokens,
+    cacheTokens: span.cachedTokens,
+    cacheWriteTokens: null,
+    inputRateUsdPerMillion: null,
+    outputRateUsdPerMillion: null,
+    inputCostUsd: null,
+    outputCostUsd: null,
+    cacheCostUsd: null,
+    cacheWriteCostUsd: null,
+    costUsd: null,
+    inputCreditsPerMillion: null,
+    cachedInputCreditsPerMillion: null,
+    cacheWriteCreditsPerMillion: null,
+    outputCreditsPerMillion: null,
+    inputCredits: null,
+    cachedInputCredits: null,
+    cacheWriteCredits: null,
+    outputCredits: null,
+    aiCredits: null,
+    copilotUsage: null,
+    pricingSource,
+    pricingUpdatedAt,
+    costKind: 'unavailable'
+  };
+  return applyCopilotUsage(record, usage);
+}
+
+class DebugUsageCollector implements vscode.Disposable {
+  private readonly offsets = new Map<string, LogOffset>();
+  private readonly seen = new Set<string>();
+  private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
+  private timer: ReturnType<typeof setInterval> | undefined;
+  private busy = false;
+  private readonly maxReadBytes = 4 * 1024 * 1024;
+  private readonly chunkBytes = 1024 * 1024;
+
+  constructor(private readonly context: vscode.ExtensionContext, private readonly onRecord: (record?: UsageRecord) => void | Promise<void>) {
+    this.status.command = 'copilotCostCounter.openUsage';
+    this.status.text = '$(pulse) Copilot usage';
+    this.status.tooltip = 'Open Copilot usage records';
+    this.status.show();
+  }
+
+  async start(): Promise<void> {
+    for (const record of await readUsageRecords()) this.seen.add(record.requestId);
+    await this.poll();
+    const interval = vscode.workspace.getConfiguration('copilotCostCounter').get('pollIntervalMs', 1000);
+    this.timer = setInterval(() => void this.poll(), interval);
+  }
+
+  async refresh(): Promise<void> {
+    await this.poll();
+  }
+
+  private async logFiles(): Promise<string[]> {
+    const storagePath = (this.context.storageUri ?? this.context.logUri).fsPath;
+    const root = path.join(path.dirname(storagePath), 'GitHub.copilot-chat', 'debug-logs');
+    let sessions: import('node:fs').Dirent[];
+    try {
+      sessions = await fs.readdir(root, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const files: string[] = [];
+    for (const session of sessions) {
+      if (!session.isDirectory()) continue;
+      try {
+        const entries = await fs.readdir(path.join(root, session.name), { withFileTypes: true });
+        files.push(...entries.filter(entry => entry.isFile() && entry.name.endsWith('.jsonl')).map(entry => path.join(root, session.name, entry.name)));
+      } catch {
+        continue;
+      }
+    }
+    return files.sort();
+  }
+
+  private async poll(): Promise<void> {
+    if (this.busy) return;
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) return;
+    this.busy = true;
+    try {
+      const output = path.join(folder.uri.fsPath, usageDirectory, debugUsageFileName);
+      try {
+        await fs.access(output);
+      } catch {
+        if (this.seen.size) {
+          this.seen.clear();
+          this.offsets.clear();
+          invalidateUsageRecordsCache();
+        }
+      }
+      const files = await this.logFiles();
+      const liveFiles = new Set(files);
+      for (const file of this.offsets.keys()) {
+        if (!liveFiles.has(file)) this.offsets.delete(file);
+      }
+
+      let budget = this.maxReadBytes;
+      const records: UsageRecord[] = [];
+      const pendingIds = new Set<string>();
+      for (const file of files) {
+        if (budget <= 0) break;
+        const stat = await fs.stat(file).catch(() => undefined);
+        if (!stat?.isFile()) continue;
+        const state = this.offsets.get(file) ?? { offset: 0, remainder: Buffer.alloc(0) };
+        if (stat.size < state.offset) {
+          state.offset = 0;
+          state.remainder = Buffer.alloc(0);
+        }
+        const start = state.offset;
+        const end = Math.min(stat.size, start + budget);
+        if (end > start) {
+          const handle = await fs.open(file, 'r').catch(() => undefined);
+          if (handle) {
+            try {
+              while (state.offset < end) {
+                const size = Math.min(this.chunkBytes, end - state.offset);
+                const buffer = Buffer.alloc(size);
+                const { bytesRead } = await handle.read(buffer, 0, size, state.offset);
+                if (bytesRead === 0) break;
+                state.offset += bytesRead;
+                const lines = takeCompleteLines(state, buffer.subarray(0, bytesRead));
+                const sessionId = path.basename(path.dirname(file));
+                for (const line of lines) {
+                  const span = parseCopilotDebugSpan(line);
+                  if (!span) continue;
+                  const requestId = `debug:${sessionId}:${span.key}`;
+                  if (this.seen.has(requestId) || pendingIds.has(requestId)) continue;
+                  pendingIds.add(requestId);
+                  records.push(usageRecordFromDebugSpan(span, file, sessionId));
+                }
+              }
+            } finally {
+              await handle.close();
+            }
+          }
+        }
+        this.offsets.set(file, state);
+        budget -= state.offset - start;
+      }
+
+      if (records.length) {
+        await fs.mkdir(path.dirname(output), { recursive: true });
+        await fs.appendFile(output, `${records.map(record => JSON.stringify(record)).join('\n')}\n`, 'utf8');
+        for (const record of records) this.seen.add(record.requestId);
+        invalidateUsageRecordsCache();
+        await this.onRecord(records[records.length - 1]);
+        const lastRecord = records[records.length - 1];
+        this.status.text = lastRecord.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(lastRecord.costUsd)}`;
+      }
+    } catch {
+      return;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  dispose(): void {
+    if (this.timer) clearInterval(this.timer);
     this.status.dispose();
   }
 }
@@ -1267,10 +1511,15 @@ class UsageCollector implements vscode.Disposable {
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const report = new UsageReportProvider(await loadReportTemplates(context.extensionUri.fsPath));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider('copilotCostCounter.report', report));
-  const collector = new UsageCollector(context, async record => {
+  const onRecord = async (record?: UsageRecord): Promise<void> => {
     await report.refresh();
     if (record) report.showMoneyBurn(record.costUsd);
-  });
+  };
+  let collectorSource = vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'outputLog');
+  let collector: UsageCollectorLike = collectorSource === 'debugLogs'
+    ? new DebugUsageCollector(context, onRecord)
+    : new UsageCollector(context, onRecord);
+  const collectorLifetime: vscode.Disposable = { dispose: () => collector.dispose() };
   const refreshReport = async (): Promise<void> => {
     await collector.refresh();
     await report.refresh();
@@ -1278,14 +1527,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   report.setRefreshLog(refreshReport);
   context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.refreshReport', refreshReport));
   context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', '@ext:local.copilot-cost-counter')));
-  context.subscriptions.push(collector);
+  context.subscriptions.push(collectorLifetime);
   context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.openUsage', async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
-    if (folder) await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.join(folder.uri.fsPath, usageDirectory, usageFileName)));
+    if (folder) await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(path.join(folder.uri.fsPath, usageDirectory, activeUsageFileName())));
   }));
   context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.chooseLog', async () => {
     const selected = await vscode.window.showOpenDialog({ canSelectMany: false, openLabel: 'Use Copilot log', filters: { 'Log files': ['log', 'txt'], 'All files': ['*'] } });
     if (selected?.[0]) await vscode.workspace.getConfiguration('copilotCostCounter').update('logPath', selected[0].fsPath, vscode.ConfigurationTarget.Workspace);
+  }));
+  let sourceSwitch = Promise.resolve();
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+    if (!event.affectsConfiguration('copilotCostCounter.logSource')) return;
+    sourceSwitch = sourceSwitch.then(async () => {
+      const nextSource = vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'outputLog');
+      if (nextSource === collectorSource) return;
+      collector.dispose();
+      collectorSource = nextSource;
+      collector = nextSource === 'debugLogs'
+        ? new DebugUsageCollector(context, onRecord)
+        : new UsageCollector(context, onRecord);
+      invalidateUsageRecordsCache();
+      await collector.start();
+      await report.refresh();
+    }).catch(error => {
+      console.error('Failed to switch Copilot usage source', error);
+    });
   }));
   await collector.start();
 }

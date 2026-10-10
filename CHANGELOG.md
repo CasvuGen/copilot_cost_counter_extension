@@ -2,6 +2,53 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.77:start -->
+## [0.2.77] - 2026-10-02
+
+Compared with version 0.2.76 at commit `3b14e8bc101ffe45b5c78a2826966433239a78d2`.
+
+### Summary
+
+- feat: update version to 0.2.76, add new pricing models, and update changelog
+- feat: add support for structured debug logs, implement parsing logic, and enhance usage reporting
+- feat: add unit tests for parsing and pricing logic, including cache metrics and output log usage
+
+### Commits
+
+- `60100bc` feat: update version to 0.2.76, add new pricing models, and update changelog
+- `5c4b383` feat: add support for structured debug logs, implement parsing logic, and enhance usage reporting
+- `b7d6682` feat: add unit tests for parsing and pricing logic, including cache metrics and output log usage
+
+<!-- release:0.2.77:end -->
+
+<!-- release:0.2.76:start -->
+## [0.2.76] - 2026-10-02
+
+Compared with version 0.2.75 at commit `3b14e8bc101ffe45b5c78a2826966433239a78d2`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.76:end -->
+
+<!-- release:0.2.75:start -->
+## [0.2.75] - 2026-09-07
+
+Compared with version 0.2.74 at commit `8e1a9f06142b060b90269811a0f8bb78c48ff89f`.
+
+### Summary
+
+- feat: update version to 0.2.74 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- feat: implement caching for usage records and chat metadata, add reconciliation logic
+
+### Commits
+
+- `a9fdb59` feat: update version to 0.2.74 in package.json, package-lock.json, README.md, and CHANGELOG.md
+- `d95c626` feat: implement caching for usage records and chat metadata, add reconciliation logic
+
+<!-- release:0.2.75:end -->
+
 <!-- release:0.2.74:start -->
 ## [0.2.74] - 2026-09-06
 

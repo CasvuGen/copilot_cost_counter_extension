@@ -181,12 +181,28 @@
         }
 
         .chart {
+            position: relative;
+            isolation: isolate;
             height: 160px;
             display: flex;
             align-items: stretch;
             gap: 5px;
             border-bottom: 1px solid var(--vscode-widget-border);
             padding: 8px 2px 0;
+        }
+
+        .chart-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 112px;
+            max-width: 42%;
+            aspect-ratio: 1;
+            color: var(--vscode-foreground);
+            opacity: .08;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .spend-heading {
@@ -216,6 +232,7 @@
 
         .bar-group {
             position: relative;
+            z-index: 1;
             flex: 1;
             height: 100%;
             display: flex;

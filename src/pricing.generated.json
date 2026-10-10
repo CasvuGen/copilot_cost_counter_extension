@@ -501,5 +501,113 @@
     "cacheWrite": 25,
     "output": 75,
     "since": "2026-09-05"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6 Luna",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 0.1,
+    "cachedInput": 0.01,
+    "cacheWrite": 0.125,
+    "output": 0.5,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6 Luna",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 0.2,
+    "cachedInput": 0.02,
+    "cacheWrite": 0.25,
+    "output": 0.75,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6 Sol",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 2,
+    "cachedInput": 0.2,
+    "cacheWrite": 2.5,
+    "output": 10,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6 Sol",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 4,
+    "cachedInput": 0.4,
+    "cacheWrite": 5,
+    "output": 15,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6.1 Sol",
+    "tier": "Default",
+    "threshold": "≤ 272K",
+    "input": 2,
+    "cachedInput": 0.1,
+    "cacheWrite": 2.5,
+    "output": 10,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "OpenAI",
+    "model": "GPT-6.1 Sol",
+    "tier": "Long context",
+    "threshold": "> 272K",
+    "input": 4,
+    "cachedInput": 0.2,
+    "cacheWrite": 5,
+    "output": 15,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Opus 5.5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 4,
+    "cachedInput": 0.2,
+    "cacheWrite": 5,
+    "output": 20,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "Anthropic",
+    "model": "Claude Sonnet 5.5",
+    "tier": "Default",
+    "threshold": "Not applicable",
+    "input": 2,
+    "cachedInput": 0.2,
+    "cacheWrite": 2.5,
+    "output": 10,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "xAI",
+    "model": "Grok 4.7",
+    "tier": "Default",
+    "threshold": "≤ 200K",
+    "input": 2,
+    "cachedInput": 0.5,
+    "output": 6,
+    "since": "2026-10-02"
+  },
+  {
+    "provider": "xAI",
+    "model": "Grok 4.7",
+    "tier": "Long context",
+    "threshold": "> 200K",
+    "input": 4,
+    "cachedInput": 1,
+    "output": 12,
+    "since": "2026-10-02"
   }
 ]
