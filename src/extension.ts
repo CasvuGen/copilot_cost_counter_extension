@@ -1474,10 +1474,10 @@ async function promptForAgentHostUsageCapture(context: vscode.ExtensionContext):
   if (context.globalState.get<boolean>(promptKey)) return;
 
   const choice = await vscode.window.showInformationMessage(
-    'To count Agent Host and Autopilot usage, VS Code must capture Agent Host debug data locally. Copilot Cost Counter reads its usage sidecar and stores usage summaries in this workspace.',
+    'To count Agent Host and Autopilot usage, VS Code must capture Agent Host debug data locally. If you continue without enabling it, that usage will be missing from the report; standard Copilot requests will still be tracked. Copilot Cost Counter reads the usage sidecar and stores summaries in this workspace.',
     { modal: true },
     'Enable Agent Host tracking',
-    'Continue without it'
+    'Continue with standard tracking'
   );
   if (!choice) return;
   if (choice === 'Enable Agent Host tracking') {
