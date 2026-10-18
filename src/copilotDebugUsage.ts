@@ -11,6 +11,19 @@ export type CopilotDebugSpan = {
   nanoAiu?: number;
 };
 
+export type AgentHostUsageRecord = {
+  key: string;
+  timestamp: number;
+  model: string;
+  turnId?: string;
+  agentId?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedTokens?: number;
+  nanoAiu?: number;
+  durationMs?: number;
+};
+
 function nonNegativeNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
@@ -58,4 +71,61 @@ export function parseCopilotDebugSpan(line: string): CopilotDebugSpan | undefine
     cachedTokens: nonNegativeNumber(attrs.cachedTokens) ?? 0,
     ...(nanoAiu === undefined ? {} : { nanoAiu })
   };
+}
+
+export function parseAgentHostUsageLog(text: string): AgentHostUsageRecord[] {
+  const records: AgentHostUsageRecord[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let value: unknown;
+    try {
+      value = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!value || typeof value !== 'object') continue;
+
+    const event = value as Record<string, unknown>;
+    const timestamp = typeof event.ts === 'string' ? Date.parse(event.ts) : Number.NaN;
+    if (!Number.isFinite(timestamp)) continue;
+
+    const apiCallId = typeof event.apiCallId === 'string' && event.apiCallId ? event.apiCallId : undefined;
+    const eventId = typeof event.eventId === 'string' && event.eventId ? event.eventId : undefined;
+    const nanoAiu = nonNegativeNumber(event.totalNanoAiu);
+    const inputTokens = nonNegativeNumber(event.inputTokens);
+    const outputTokens = nonNegativeNumber(event.outputTokens);
+    const cachedTokens = nonNegativeNumber(event.cacheReadTokens);
+    if (nanoAiu === undefined && inputTokens === undefined && outputTokens === undefined) continue;
+
+    records.push({
+      key: apiCallId ?? eventId ?? createHash('sha256').update(trimmed).digest('hex'),
+      timestamp,
+      model: typeof event.model === 'string' && event.model ? event.model : 'unknown',
+      ...(typeof event.turnId === 'string' && event.turnId ? { turnId: event.turnId } : {}),
+      ...(typeof event.agentId === 'string' && event.agentId ? { agentId: event.agentId } : {}),
+      ...(inputTokens === undefined ? {} : { inputTokens }),
+      ...(outputTokens === undefined ? {} : { outputTokens }),
+      ...(cachedTokens === undefined ? {} : { cachedTokens }),
+      ...(nanoAiu === undefined ? {} : { nanoAiu }),
+      ...(nonNegativeNumber(event.durationMs) === undefined ? {} : { durationMs: nonNegativeNumber(event.durationMs) })
+    });
+  }
+
+  const rootUsageTurns = new Set(records
+    .filter(record => !record.agentId && record.turnId && record.nanoAiu !== undefined)
+    .map(record => record.turnId as string));
+  const totalNanoAiuByTurn = new Map<string, number>();
+  return records.map(record => {
+    if (record.agentId && record.turnId && rootUsageTurns.has(record.turnId) && record.nanoAiu !== undefined) {
+      return { ...record, nanoAiu: 0 };
+    }
+    if (!record.turnId || record.nanoAiu === undefined) return record;
+
+    const previous = totalNanoAiuByTurn.get(record.turnId) ?? 0;
+    const total = Math.max(previous, record.nanoAiu);
+    totalNanoAiuByTurn.set(record.turnId, total);
+    return { ...record, nanoAiu: Math.max(0, record.nanoAiu - previous) };
+  });
 }

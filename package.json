@@ -107,7 +107,7 @@
             "debugLogs"
           ],
           "default": "outputLog",
-          "markdownDescription": "Choose the request source. `outputLog` is broadly compatible and records new requests; `debugLogs` parses Copilot's structured chat logs and can import their existing history. Debug logs must be enabled in Copilot Chat."
+          "markdownDescription": "Choose the request source. `outputLog` is the default and records new requests plus Agent Host usage sidecars; `debugLogs` also imports Copilot Chat spans. The extension offers to enable Agent Host debug logging on first use. Copilot Chat spans require `github.copilot.chat.agentDebugLog.fileLogging.enabled`."
         },
         "copilotCostCounter.logPath": {
           "type": "string",

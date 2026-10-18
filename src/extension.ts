@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
-import { parseCopilotDebugSpan } from './copilotDebugUsage';
+import { AgentHostUsageRecord, parseAgentHostUsageLog, parseCopilotDebugSpan } from './copilotDebugUsage';
 import { takeCompleteLines, type IncrementalLineState } from './incrementalLines';
 import { parseOutputLogUsageLine } from './outputLogUsage';
 import { createPricingLookup, normalizeModel, type ModelPricing, type PricingOverrides, type PricingRow } from './pricing';
@@ -66,6 +66,7 @@ type UsageRecord = {
   pricingUpdatedAt: string | null;
   costKind: 'estimated' | 'unavailable';
 };
+type AgentHostSidecarCache = Map<string, { size: number; modified: number; records: UsageRecord[] }>;
 
 type ChatMetadata = {
   chatId: string;
@@ -829,6 +830,7 @@ class UsageCollector implements vscode.Disposable {
   private pollPromise: Promise<void> | undefined;
   private pendingMoneyBurnUsd = 0;
   private readonly seen = new Set<string>();
+  private readonly agentHostSidecars: AgentHostSidecarCache = new Map();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
   private readonly maxLogReadBytes = 4 * 1024 * 1024;
   private readonly logReadChunkBytes = 1024 * 1024;
@@ -1057,6 +1059,15 @@ class UsageCollector implements vscode.Disposable {
     await this.resetIfOutputMissing();
     for (const sourceLog of await this.logPaths()) {
       await this.pollLog(sourceLog);
+    }
+    await this.pollAgentHostUsage();
+  }
+
+  private async pollAgentHostUsage(): Promise<void> {
+    for (const record of await readAgentHostUsageSidecars(this.context, this.agentHostSidecars)) {
+      if (this.seen.has(record.requestId)) continue;
+      this.seen.add(record.requestId);
+      await this.append(record);
     }
   }
 
@@ -1371,9 +1382,119 @@ function usageRecordFromDebugSpan(span: NonNullable<ReturnType<typeof parseCopil
   return applyCopilotUsage(record, usage);
 }
 
+function usageRecordFromAgentHost(record: AgentHostUsageRecord, sessionId: string): UsageRecord {
+  const usage: CopilotUsage = {
+    ...(record.inputTokens === undefined ? {} : { prompt_tokens: record.inputTokens }),
+    ...(record.outputTokens === undefined ? {} : { completion_tokens: record.outputTokens }),
+    ...(record.inputTokens === undefined || record.outputTokens === undefined ? {} : { total_tokens: record.inputTokens + record.outputTokens }),
+    ...(record.cachedTokens === undefined ? {} : { prompt_tokens_details: { cached_tokens: record.cachedTokens } }),
+    ...(record.nanoAiu === undefined ? {} : { copilot_usage: { total_nano_aiu: record.nanoAiu } })
+  };
+  const usageRecord: UsageRecord = {
+    schemaId: usageSchemaId,
+    timestamp: new Date(record.timestamp).toISOString(),
+    sourceLog: `agent-host/${sessionId}`,
+    requestId: `agenthost:${sessionId}:${record.key}`,
+    ...(record.turnId ? { turnId: record.turnId } : {}),
+    model: record.model,
+    feature: 'chat',
+    requestType: 'chat',
+    durationMs: record.durationMs ?? 0,
+    promptTokens: record.inputTokens ?? null,
+    freshInputTokens: null,
+    outputTokens: record.outputTokens ?? null,
+    cacheTokens: record.cachedTokens ?? null,
+    cacheWriteTokens: null,
+    inputRateUsdPerMillion: null,
+    outputRateUsdPerMillion: null,
+    inputCostUsd: null,
+    outputCostUsd: null,
+    cacheCostUsd: null,
+    cacheWriteCostUsd: null,
+    costUsd: null,
+    inputCreditsPerMillion: null,
+    cachedInputCreditsPerMillion: null,
+    cacheWriteCreditsPerMillion: null,
+    outputCreditsPerMillion: null,
+    inputCredits: null,
+    cachedInputCredits: null,
+    cacheWriteCredits: null,
+    outputCredits: null,
+    aiCredits: null,
+    copilotUsage: null,
+    pricingSource,
+    pricingUpdatedAt,
+    costKind: 'unavailable'
+  };
+  return applyCopilotUsage(usageRecord, usage);
+}
+
+async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cache: AgentHostSidecarCache): Promise<UsageRecord[]> {
+  const userDataHome = path.resolve(context.globalStorageUri.fsPath, '..', '..');
+  const root = path.join(userDataHome, 'agentHostUsage');
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const files = entries.filter(entry => entry.isFile() && entry.name.endsWith('.jsonl')).map(entry => path.join(root, entry.name));
+  const liveFiles = new Set(files);
+  for (const file of cache.keys()) {
+    if (!liveFiles.has(file)) cache.delete(file);
+  }
+
+  const records: UsageRecord[] = [];
+  for (const file of files) {
+    const stat = await fs.stat(file).catch(() => undefined);
+    if (!stat?.isFile()) continue;
+    const cached = cache.get(file);
+    if (cached?.size === stat.size && cached.modified === stat.mtimeMs) {
+      records.push(...cached.records);
+      continue;
+    }
+
+    const text = await fs.readFile(file, 'utf8').catch(() => undefined);
+    if (text === undefined) continue;
+    const sessionId = path.basename(file, '.jsonl');
+    const usageRecords = parseAgentHostUsageLog(text).map(record => usageRecordFromAgentHost(record, sessionId));
+    cache.set(file, { size: stat.size, modified: stat.mtimeMs, records: usageRecords });
+    records.push(...usageRecords);
+  }
+  return records;
+}
+
+async function promptForAgentHostUsageCapture(context: vscode.ExtensionContext): Promise<void> {
+  if (!vscode.workspace.workspaceFolders?.length) return;
+  const settingKey = 'chat.agentHost.agentDebugLog.enabled';
+  const configuration = vscode.workspace.getConfiguration();
+  if (!configuration.inspect<boolean>(settingKey) || configuration.get<boolean>(settingKey, false)) return;
+  const promptKey = 'agentHostUsageCapturePrompted';
+  if (context.globalState.get<boolean>(promptKey)) return;
+
+  const choice = await vscode.window.showInformationMessage(
+    'To count Agent Host and Autopilot usage, VS Code must capture Agent Host debug data locally. Copilot Cost Counter reads its usage sidecar and stores usage summaries in this workspace.',
+    { modal: true },
+    'Enable Agent Host tracking',
+    'Continue without it'
+  );
+  if (!choice) return;
+  if (choice === 'Enable Agent Host tracking') {
+    try {
+      await configuration.update(settingKey, true, vscode.ConfigurationTarget.Global);
+    } catch {
+      await vscode.window.showErrorMessage('Could not enable Agent Host debug logging. You can enable it in VS Code Settings: chat.agentHost.agentDebugLog.enabled.');
+      return;
+    }
+  }
+  await context.globalState.update(promptKey, true);
+}
+
 class DebugUsageCollector implements vscode.Disposable {
   private readonly offsets = new Map<string, LogOffset>();
   private readonly seen = new Set<string>();
+  private readonly agentHostSidecars: AgentHostSidecarCache = new Map();
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
   private timer: ReturnType<typeof setInterval> | undefined;
   private busy = false;
@@ -1486,13 +1607,16 @@ class DebugUsageCollector implements vscode.Disposable {
         budget -= state.offset - start;
       }
 
-      if (records.length) {
+      records.push(...await readAgentHostUsageSidecars(this.context, this.agentHostSidecars));
+      const newRecords = records.filter(record => !this.seen.has(record.requestId));
+
+      if (newRecords.length) {
         await fs.mkdir(path.dirname(output), { recursive: true });
-        await fs.appendFile(output, `${records.map(record => JSON.stringify(record)).join('\n')}\n`, 'utf8');
-        for (const record of records) this.seen.add(record.requestId);
+        await fs.appendFile(output, `${newRecords.map(record => JSON.stringify(record)).join('\n')}\n`, 'utf8');
+        for (const record of newRecords) this.seen.add(record.requestId);
         invalidateUsageRecordsCache();
-        await this.onRecord(records[records.length - 1]);
-        const lastRecord = records[records.length - 1];
+        await this.onRecord(newRecords[newRecords.length - 1]);
+        const lastRecord = newRecords[newRecords.length - 1];
         this.status.text = lastRecord.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(lastRecord.costUsd)}`;
       }
     } catch {
@@ -1554,6 +1678,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       console.error('Failed to switch Copilot usage source', error);
     });
   }));
+  let agentHostPromptHandled = false;
+  const promptForAgentHostCapture = async (): Promise<void> => {
+    if (agentHostPromptHandled || !vscode.workspace.workspaceFolders?.length) return;
+    agentHostPromptHandled = true;
+    await promptForAgentHostUsageCapture(context);
+  };
+  context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => void promptForAgentHostCapture()));
+  await promptForAgentHostCapture();
   await collector.start();
 }
 
