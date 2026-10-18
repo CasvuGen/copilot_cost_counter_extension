@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
+import { firstUserMessageFromMetadata, isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
 import { AgentHostUsageRecord, parseAgentHostUsageLog, parseCopilotDebugSpan } from './copilotDebugUsage';
 import { takeCompleteLines, type IncrementalLineState } from './incrementalLines';
 import { parseOutputLogUsageLine } from './outputLogUsage';
@@ -574,7 +574,10 @@ async function readPersistedChatTitle(workspaceStoragePath: string, chatId: stri
   if (cachedTitle) return { title: cachedTitle, titleSource: 'copilot' };
 
   const persistedChat = turnIds.length ? await persistedChatForTurn(workspaceStoragePath, turnIds[0]) : undefined;
-  return persistedChat?.title && persistedChat.titleSource ? { title: persistedChat.title, titleSource: persistedChat.titleSource } : undefined;
+  if (persistedChat?.title && persistedChat.titleSource) return { title: persistedChat.title, titleSource: persistedChat.titleSource };
+
+  const firstUserMessage = firstUserMessageFromMetadata(sessionMetadata) ?? firstUserMessageFromMetadata(cachedMetadata?.[chatId]);
+  return firstUserMessage ? { title: firstUserMessage, titleSource: 'firstUserMessage' } : undefined;
 }
 
 async function persistedChatForTurn(workspaceStoragePath: string, turnId: string): Promise<{ chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string } | undefined> {
@@ -745,14 +748,18 @@ function renderReportFromTemplates(records: ReportRecord[], chatMetadata: ChatMe
   const maxModel = Math.max(...[...byModel.values()].map(model => model.cost), 0.000001);
   const empty = (message: string) => fillTemplate(templates.empty, { message: escapeHtml(message) });
   const card = (label: string, value: string) => fillTemplate(templates.card, { label: escapeHtml(label), value: escapeHtml(value) });
-  const spendChart = (entries: [string, number][], label: (key: string) => string) => {
+  const spendChart = (entries: [string, number][], label: (key: string, index: number) => string) => {
     const maximum = Math.max(...entries.map(([, cost]) => cost), 0.000001);
-    return entries.length ? fillTemplate(templates.dailyChart, { bars: entries.map(([key, cost]) => fillTemplate(templates.dailyBar, {
-      height: String(Math.max(4, cost / maximum * 100)), title: escapeHtml(`${key}: ${formatMoney(cost)}`), day: escapeHtml(label(key))
+    return entries.length ? fillTemplate(templates.dailyChart, { bars: entries.map(([key, cost], index) => fillTemplate(templates.dailyBar, {
+      height: String(Math.max(4, cost / maximum * 100)), title: escapeHtml(`${key}: ${formatMoney(cost)}`), day: escapeHtml(label(key, index))
     })).join('') }) : empty('No estimated cost data yet.');
   };
+  const dailyEntries = [...byDay.entries()].sort(([left], [right]) => left.localeCompare(right)).slice(-14);
+  const dailyLabelCount = Math.min(4, dailyEntries.length);
+  const dailyLabelIndexes = new Set(Array.from({ length: dailyLabelCount }, (_, labelIndex) =>
+    Math.round(labelIndex * (dailyEntries.length - 1) / Math.max(1, dailyLabelCount - 1))));
   const spendCharts = {
-    daily: spendChart([...byDay.entries()].sort(([left], [right]) => left.localeCompare(right)).slice(-14), day => day.slice(5)),
+    daily: spendChart(dailyEntries, (day, index) => dailyLabelIndexes.has(index) ? day.slice(5) : ''),
     chat: spendChart([...byChat.entries()].sort((left, right) => right[1] - left[1]).slice(0, 10), chat => chat.slice(0, 14)),
     feature: spendChart([...byFeature.entries()].sort((left, right) => right[1] - left[1]).slice(0, 10), feature => feature.slice(0, 14))
   };
@@ -1458,7 +1465,27 @@ async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cach
     const text = await fs.readFile(file, 'utf8').catch(() => undefined);
     if (text === undefined) continue;
     const sessionId = path.basename(file, '.jsonl');
-    const usageRecords = parseAgentHostUsageLog(text).map(record => usageRecordFromAgentHost(record, sessionId));
+    const parsedRecords = parseAgentHostUsageLog(text);
+    const workspaceStoragePath = path.dirname((context.storageUri ?? context.logUri).fsPath);
+    const chatsByTurn = await persistedChatsByTurn(workspaceStoragePath);
+    const sessionTitle = await readPersistedChatTitle(workspaceStoragePath, sessionId);
+    const usageRecords = parsedRecords.map(record => {
+      const persistedChat = record.turnId ? chatsByTurn.get(record.turnId) : undefined;
+      const journalTitle = persistedChat?.title && persistedChat.titleSource
+        ? { title: persistedChat.title, titleSource: persistedChat.titleSource }
+        : undefined;
+      const title = sessionTitle?.titleSource === 'copilot'
+        ? sessionTitle
+        : journalTitle?.titleSource === 'copilot'
+          ? journalTitle
+          : sessionTitle ?? journalTitle;
+      return {
+        ...usageRecordFromAgentHost(record, sessionId),
+        chatId: persistedChat?.chatId ?? sessionId,
+        ...(title ? { conversationTitle: title.title, conversationTitleSource: title.titleSource } : {}),
+        ...(persistedChat?.firstUserMessage ? { firstUserMessage: persistedChat.firstUserMessage } : {})
+      };
+    });
     cache.set(file, { size: stat.size, modified: stat.mtimeMs, records: usageRecords });
     records.push(...usageRecords);
   }
@@ -1614,6 +1641,7 @@ class DebugUsageCollector implements vscode.Disposable {
         await fs.mkdir(path.dirname(output), { recursive: true });
         await fs.appendFile(output, `${newRecords.map(record => JSON.stringify(record)).join('\n')}\n`, 'utf8');
         for (const record of newRecords) this.seen.add(record.requestId);
+        for (const record of newRecords) await updateChatMetadata(record);
         invalidateUsageRecordsCache();
         await this.onRecord(newRecords[newRecords.length - 1]);
         const lastRecord = newRecords[newRecords.length - 1];

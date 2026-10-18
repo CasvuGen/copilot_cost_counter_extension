@@ -29,6 +29,11 @@ export function sessionTitleFromMetadata(session: CopilotSessionMetadata | undef
   return usableSessionTitle(session?.customTitle) ?? usableSessionTitle(session?.v?.customTitle);
 }
 
+export function firstUserMessageFromMetadata(session: CopilotSessionMetadata | undefined): string | undefined {
+  const message = usableSessionTitle(session?.firstUserMessage);
+  return message ? firstUserMessageLabel(message) : undefined;
+}
+
 export function persistedChatSessionFromJsonl(content: string): PersistedChatSession | undefined {
   let chatId: string | undefined;
   let title: string | undefined;

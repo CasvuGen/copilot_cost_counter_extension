@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { firstUserMessageLabel, isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionContainsTurn, sessionTitleFromJsonl, sessionTitleFromMetadata } from '../dist/chatMetadata.js';
+import { firstUserMessageFromMetadata, firstUserMessageLabel, isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionContainsTurn, sessionTitleFromJsonl, sessionTitleFromMetadata } from '../dist/chatMetadata.js';
 
 const fixturePath = name => fileURLToPath(new URL(`../test_data/${name}`, import.meta.url));
 
@@ -44,6 +44,11 @@ test('collects a later turn from a VS Code requests patch event', () => {
 
 test('does not use the first user message as a generated chat title', () => {
   assert.equal(sessionTitleFromMetadata({ firstUserMessage: '  Explain this error\nplease ' }), undefined);
+});
+
+test('uses the saved first user message as a bounded fallback label', () => {
+  assert.equal(firstUserMessageFromMetadata({ firstUserMessage: '  Explain   this error\nplease ' }), 'Explain this error please');
+  assert.equal(firstUserMessageFromMetadata({ firstUserMessage: 'x'.repeat(60) }), 'x'.repeat(50));
 });
 
 test('does not use a nested request message as a generated chat title', () => {
