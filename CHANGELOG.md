@@ -2,6 +2,25 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.78:start -->
+## [0.2.78] - 2026-10-18
+
+Compared with version 0.2.77 at commit `b7d66828f7891fc5238a460b2a626629b7cecc1f`.
+
+### Summary
+
+- feat: update version to 0.2.77
+- feat: add support for Agent Host usage tracking and parsing, update README and tests
+- feat: update Agent Host usage prompt for clarity on tracking options
+
+### Commits
+
+- `f2cc8fa` feat: update version to 0.2.77
+- `b3f870a` feat: add support for Agent Host usage tracking and parsing, update README and tests
+- `e14cacf` feat: update Agent Host usage prompt for clarity on tracking options
+
+<!-- release:0.2.78:end -->
+
 <!-- release:0.2.77:start -->
 ## [0.2.77] - 2026-10-02
 
