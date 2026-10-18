@@ -66,6 +66,23 @@ The extension stores only request metadata and calculated usage summaries in `.c
 
 `copilotCostCounter.logSource` defaults to `outputLog`, which records new requests from Copilot's extension-host output log and Agent Host usage sidecars in the same workspace ledger. On first use, the extension offers to enable VS Code's `chat.agentHost.agentDebugLog.enabled` setting so Agent Host sessions such as Autopilot can be counted; you can decline and continue tracking standard Copilot requests. The prompt appears once. Set `logSource` to `debugLogs` to additionally read Copilot Chat's structured `debug-logs` JSONL files; those require `github.copilot.chat.agentDebugLog.fileLogging.enabled`. Structured logs can import existing usage history and use Copilot's recorded AI-unit values, but rely on undocumented formats that may change.
 
+### Enable Agent Host Logging
+
+Choosing **Enable Agent Host tracking** in the prompt sets `chat.agentHost.agentDebugLog.enabled` in VS Code's global **User** settings. It does not add the setting to the current workspace's `.vscode/settings.json`. To check or change it manually:
+
+1. Open **Preferences: Open Settings (UI)** from the Command Palette (`Cmd+Shift+P` on macOS, `Ctrl+Shift+P` on Windows/Linux).
+2. Search for `chat.agentHost.agentDebugLog.enabled` and turn on **Chat: Agent Host: Agent Debug Log: Enabled**.
+
+You can also open **Preferences: Open User Settings (JSON)** and set:
+
+```json
+{
+	"chat.agentHost.agentDebugLog.enabled": true
+}
+```
+
+If that setting does not appear, update to a VS Code version that includes Agent Host sessions. VS Code captures Agent Host usage only for sessions run while this setting is enabled; turning it on does not recreate usage for sessions that ran before capture was enabled. This is separate from `github.copilot.chat.agentDebugLog.fileLogging.enabled`, which is needed only for the additional Copilot Chat `debugLogs` source.
+
 The report reads only the ledger for the selected source: `.copilot/usage.jsonl` for `outputLog` or `.copilot/usage.debug.jsonl` for `debugLogs`. Switching sources does not merge or double-count the ledgers. The structured reader persists usage fields only; it does not store prompt or response text or absolute debug-log paths. Calls found in title and categorization sidecar logs are retained as utility records and excluded from estimated spend totals. Chat titles and turn associations are not currently joined in this mode.
 
 The Tokens tab's cache hit rate is cached input tokens divided by prompt tokens across the selected ledger. It is unavailable when prompt-token counts are missing and does not estimate which parts of the prompt came from history, system instructions, or tool schemas.
