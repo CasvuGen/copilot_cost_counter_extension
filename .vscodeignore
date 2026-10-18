@@ -10,4 +10,4 @@ pricing.generated.csv
 .copilot/**
 .timetracker
 .DS_Store
-*_refe/
+_ref/

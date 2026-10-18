@@ -2,6 +2,49 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.81:start -->
+## [0.2.81] - 2026-10-18
+
+Compared with version 0.2.80 at commit `94aabce5028a89a21f7d0476efa918402b7ff839`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.81:end -->
+
+<!-- release:0.2.80:start -->
+## [0.2.80] - 2026-10-18
+
+Compared with version 0.2.79 at commit `94aabce5028a89a21f7d0476efa918402b7ff839`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.80:end -->
+
+<!-- release:0.2.79:start -->
+## [0.2.79] - 2026-10-18
+
+Compared with version 0.2.78 at commit `e14cacfc81d846b924bd2a703c5ca9864f4044eb`.
+
+### Summary
+
+- feat: update version to 0.2.78, add new pricing models, and update changelog and README
+- feat: add ignore option for packaging to exclude specified directories
+- feat: add _ref/ directory to .gitignore
+- feat: add firstUserMessageFromMetadata function and update related logic in session title handling
+
+### Commits
+
+- `2518a97` feat: update version to 0.2.78, add new pricing models, and update changelog and README
+- `ce5806f` feat: add ignore option for packaging to exclude specified directories
+- `05f6a19` feat: add _ref/ directory to .gitignore
+- `94aabce` feat: add firstUserMessageFromMetadata function and update related logic in session title handling
+
+<!-- release:0.2.79:end -->
+
 <!-- release:0.2.78:start -->
 ## [0.2.78] - 2026-10-18
 
