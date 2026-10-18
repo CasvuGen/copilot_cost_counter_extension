@@ -297,6 +297,23 @@
             width: 100%;
         }
 
+        .horizontal-scroll-region {
+            min-width: 0;
+            max-width: 100%;
+            overflow-x: auto;
+            overscroll-behavior-x: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .horizontal-scroll-region:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 2px;
+        }
+
+        .requests-table {
+            min-width: 360px;
+        }
+
         th,
         td {
             text-align: left;
@@ -321,6 +338,7 @@
         .chat-group {
             border: 1px solid var(--vscode-widget-border);
             margin: 6px 0;
+            min-width: 360px;
         }
 
         .chat-group summary {
