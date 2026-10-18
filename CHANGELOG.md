@@ -2,6 +2,23 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.82:start -->
+## [0.2.82] - 2026-10-18
+
+Compared with version 0.2.81 at commit `94aabce5028a89a21f7d0476efa918402b7ff839`.
+
+### Summary
+
+- feat: update version to 0.2.81 in package.json and package-lock.json; modify packaging script to use .vscodeignore
+- feat: update version to 0.2.81 in README.md; modify .vscodeignore to correctly ignore _ref/ directory; update CHANGELOG.md with release notes for version 0.2.81
+
+### Commits
+
+- `2c77cf5` feat: update version to 0.2.81 in package.json and package-lock.json; modify packaging script to use .vscodeignore
+- `495acbc` feat: update version to 0.2.81 in README.md; modify .vscodeignore to correctly ignore _ref/ directory; update CHANGELOG.md with release notes for version 0.2.81
+
+<!-- release:0.2.82:end -->
+
 <!-- release:0.2.81:start -->
 ## [0.2.81] - 2026-10-18
 
