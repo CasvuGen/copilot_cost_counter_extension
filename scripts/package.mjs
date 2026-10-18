@@ -5,7 +5,6 @@ import path from 'node:path';
 const projectRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const commentIndex = process.argv.indexOf('--comment');
 const comment = commentIndex === -1 ? undefined : process.argv[commentIndex + 1]?.trim();
-const excludeDirs = ['node_modules', 'packages', ".git", "_ref"];
 
 if (commentIndex !== -1 && !comment) throw new Error('The --comment option requires text.');
 
@@ -29,6 +28,6 @@ run(path.join(projectRoot, 'node_modules', '.bin', 'vsce'), [
   '--allow-missing-repository', 
   '--out', 
   `packages/copilot-cost-counter-${packageJson.version}.vsix`,
-  '--ignore', 
-  excludeDirs.join(',')
+  '--ignoreFile',
+  '.vscodeignore'
 ]);
