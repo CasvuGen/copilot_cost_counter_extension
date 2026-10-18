@@ -5,6 +5,7 @@ import path from 'node:path';
 const projectRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const commentIndex = process.argv.indexOf('--comment');
 const comment = commentIndex === -1 ? undefined : process.argv[commentIndex + 1]?.trim();
+const excludeDirs = ['node_modules', 'packages', ".git", "_ref"];
 
 if (commentIndex !== -1 && !comment) throw new Error('The --comment option requires text.');
 
@@ -14,6 +15,7 @@ function run(command, args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+
 run('npm', ['run', 'backup-codebase']);
 run('npm', ['version', 'patch', '--no-git-tag-version']);
 run(process.execPath, ['scripts/update-readme-version.mjs']);
@@ -22,4 +24,11 @@ run('npm', ['run', 'test']);
 
 await mkdir(path.join(projectRoot, 'packages'), { recursive: true });
 const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
-run(path.join(projectRoot, 'node_modules', '.bin', 'vsce'), ['package', '--allow-missing-repository', '--out', `packages/copilot-cost-counter-${packageJson.version}.vsix`]);
+run(path.join(projectRoot, 'node_modules', '.bin', 'vsce'), [
+  'package', 
+  '--allow-missing-repository', 
+  '--out', 
+  `packages/copilot-cost-counter-${packageJson.version}.vsix`,
+  '--ignore', 
+  excludeDirs.join(',')
+]);
