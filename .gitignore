@@ -19,3 +19,4 @@ yarn-debug.log*
 yarn-error.log*
 *_refe
 .timetracker
+_ref/
