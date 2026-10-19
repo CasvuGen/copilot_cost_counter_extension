@@ -2,6 +2,29 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.83:start -->
+## [0.2.83] - 2026-10-19
+
+Compared with version 0.2.82 at commit `495acbcc91ad2bc928bc93edc7ef9d931c90b93d`.
+
+### Summary
+
+- Merge V.1 to main (#1)
+- feat: update version to 0.2.82 in package.json, package-lock.json, and README.md; update CHANGELOG.md with release notes for version 0.2.82
+- feat: wrap chat list and recent requests table in horizontal scroll regions; add styles for horizontal scrolling
+- Merge branch 'main' of https://github.com/Aavato-c/copilot_cost_counter_extension
+- feat: add instructions for enabling Agent Host logging in README.md
+
+### Commits
+
+- `1affd17` Merge V.1 to main (#1)
+- `98e88d3` feat: update version to 0.2.82 in package.json, package-lock.json, and README.md; update CHANGELOG.md with release notes for version 0.2.82
+- `c797a6f` feat: wrap chat list and recent requests table in horizontal scroll regions; add styles for horizontal scrolling
+- `2acefc7` Merge branch 'main' of https://github.com/Aavato-c/copilot_cost_counter_extension
+- `fbb7692` feat: add instructions for enabling Agent Host logging in README.md
+
+<!-- release:0.2.83:end -->
+
 <!-- release:0.2.82:start -->
 ## [0.2.82] - 2026-10-18
 
