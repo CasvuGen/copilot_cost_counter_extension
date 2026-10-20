@@ -1,11 +1,8 @@
 _ref/
 _ref/
-!.copilot/
 !.env.example
-.copilot/*
+.copilot
 .copilot/**
-.copilot/usage_metadata.json
-.copilot/usage.jsonl
 .DS_Store
 .DS_Store
 .env
@@ -18,7 +15,6 @@ _ref/
 *.log
 *.tsbuildinfo
 *.vsix
-dist/
 node_modules/
 npm-debug.log*
 packages/*.vsix

@@ -2,6 +2,34 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.85:start -->
+## [0.2.85] - 2026-10-20
+
+Compared with version 0.2.84 at commit `593dc1bb6b6f8997f6ec04d58a8b1fdef518c623`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.85:end -->
+
+<!-- release:0.2.84:start -->
+## [0.2.84] - 2026-10-20
+
+Compared with version 0.2.83 at commit `fbb7692a9c8e13ed093d37990876d3fb5c7ad293`.
+
+### Summary
+
+- feat: update version to 0.2.83 in package.json, package-lock.json, and README.md; update CHANGELOG.md with release notes for version 0.2.83
+- feat: add filtering for Agent Host usage records based on workspace context; update tests and related files
+
+### Commits
+
+- `dc556df` feat: update version to 0.2.83 in package.json, package-lock.json, and README.md; update CHANGELOG.md with release notes for version 0.2.83
+- `593dc1b` feat: add filtering for Agent Host usage records based on workspace context; update tests and related files
+
+<!-- release:0.2.84:end -->
+
 <!-- release:0.2.83:start -->
 ## [0.2.83] - 2026-10-19
 
