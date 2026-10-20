@@ -2,6 +2,21 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.86:start -->
+## [0.2.86] - 2026-10-20
+
+Compared with version 0.2.85 at commit `593dc1bb6b6f8997f6ec04d58a8b1fdef518c623`.
+
+### Summary
+
+- feat: update version to 0.2.85 in package.json, package-lock.json, and README.md; update CHANGELOG.md with release notes for version 0.2.85; modify .vscodeignore to include .copilot directory
+
+### Commits
+
+- `24976d6` feat: update version to 0.2.85 in package.json, package-lock.json, and README.md; update CHANGELOG.md with release notes for version 0.2.85; modify .vscodeignore to include .copilot directory
+
+<!-- release:0.2.86:end -->
+
 <!-- release:0.2.85:start -->
 ## [0.2.85] - 2026-10-20
 
