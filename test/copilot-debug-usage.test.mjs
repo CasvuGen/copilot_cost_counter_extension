@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseAgentHostUsageLog, parseCopilotDebugSpan } from '../dist/copilotDebugUsage.js';
+import { filterAgentHostUsageForWorkspace, parseAgentHostUsageLog, parseCopilotDebugSpan } from '../dist/copilotDebugUsage.js';
 
 test('parses Agent Host model calls and converts cumulative turn AIU to per-call amounts', () => {
   const records = parseAgentHostUsageLog([
@@ -18,6 +18,17 @@ test('parses Agent Host model calls and converts cumulative turn AIU to per-call
 
 test('skips malformed and empty Agent Host usage records', () => {
   assert.deepEqual(parseAgentHostUsageLog('not json\n{"ts":"invalid","inputTokens":1}\n{}'), []);
+});
+
+test('filters global Agent Host sidecars to sessions and turns persisted in the current workspace', () => {
+  const records = parseAgentHostUsageLog([
+    { apiCallId: 'current-call', turnId: 'current-turn', inputTokens: 10, outputTokens: 2, ts: '2026-10-20T10:00:00.000Z' },
+    { apiCallId: 'other-call', turnId: 'other-turn', inputTokens: 20, outputTokens: 4, ts: '2026-10-20T10:00:01.000Z' },
+    { apiCallId: 'unassociated-call', inputTokens: 30, outputTokens: 6, ts: '2026-10-20T10:00:02.000Z' }
+  ].map(record => JSON.stringify(record)).join('\n'));
+
+  assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(['current-turn']), 'current-chat', new Set(['current-chat'])).map(record => record.key), ['current-call', 'unassociated-call']);
+  assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(), 'other-chat', new Set(['current-chat'])).map(record => record.key), []);
 });
 
 test('extracts measured token, cache, model, and AI-unit fields', () => {

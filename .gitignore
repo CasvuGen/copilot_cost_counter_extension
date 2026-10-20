@@ -20,3 +20,4 @@ yarn-error.log*
 *_refe
 .timetracker
 _ref/
+remote_data/*

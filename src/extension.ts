@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { firstUserMessageFromMetadata, isPersistedChatTitleSource, isUsableConversationTitle, persistedChatSessionFromJsonl, sessionTitleFromJsonl, sessionTitleFromMetadata } from './chatMetadata';
-import { AgentHostUsageRecord, parseAgentHostUsageLog, parseCopilotDebugSpan } from './copilotDebugUsage';
+import { AgentHostUsageRecord, filterAgentHostUsageForWorkspace, parseAgentHostUsageLog, parseCopilotDebugSpan } from './copilotDebugUsage';
 import { takeCompleteLines, type IncrementalLineState } from './incrementalLines';
 import { parseOutputLogUsageLine } from './outputLogUsage';
 import { createPricingLookup, normalizeModel, type ModelPricing, type PricingOverrides, type PricingRow } from './pricing';
@@ -26,6 +26,7 @@ const pricingUpdatedAt: string | null = generatedRows.length > 0 ? new Date().to
 
 type UsageRecord = {
   schemaId: number;
+  extensionVersion?: string;
   timestamp: string;
   sourceLog: string;
   requestId: string;
@@ -66,7 +67,17 @@ type UsageRecord = {
   pricingUpdatedAt: string | null;
   costKind: 'estimated' | 'unavailable';
 };
-type AgentHostSidecarCache = Map<string, { size: number; modified: number; records: UsageRecord[] }>;
+type AgentHostSidecarCache = Map<string, { size: number; modified: number; workspaceStoragePath: string; workspaceTurnSignature: string; sourceRecords: AgentHostUsageRecord[]; records: UsageRecord[] }>;
+
+function usageRecordForLog(record: UsageRecord, context: vscode.ExtensionContext): UsageRecord {
+  const extensionVersion = context.extension.packageJSON.version;
+  const { schemaId, ...fields } = record;
+  return {
+    schemaId,
+    extensionVersion: typeof extensionVersion === 'string' ? extensionVersion : 'unknown',
+    ...fields
+  };
+}
 
 type ChatMetadata = {
   chatId: string;
@@ -1294,7 +1305,7 @@ class UsageCollector implements vscode.Disposable {
     if (!folder) return;
     const output = path.join(folder.uri.fsPath, usageDirectory, usageFileName);
     await fs.mkdir(path.dirname(output), { recursive: true });
-    await fs.appendFile(output, `${JSON.stringify(record)}\n`, 'utf8');
+    await fs.appendFile(output, `${JSON.stringify(usageRecordForLog(record, this.context))}\n`, 'utf8');
     invalidateUsageRecordsCache();
     await updateChatMetadata(record);
     if (record.chatId) await this.updatePersistedChatTitle(record.chatId, record.timestamp, record.turnId ? [record.turnId] : []);
@@ -1439,6 +1450,11 @@ function usageRecordFromAgentHost(record: AgentHostUsageRecord, sessionId: strin
 async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cache: AgentHostSidecarCache): Promise<UsageRecord[]> {
   const userDataHome = path.resolve(context.globalStorageUri.fsPath, '..', '..');
   const root = path.join(userDataHome, 'agentHostUsage');
+  const workspaceStoragePath = path.dirname((context.storageUri ?? context.logUri).fsPath);
+  const chatsByTurn = await persistedChatsByTurn(workspaceStoragePath);
+  const workspaceTurnIds = new Set(chatsByTurn.keys());
+  const workspaceChatIds = new Set([...chatsByTurn.values()].map(chat => chat.chatId));
+  const workspaceTurnSignature = JSON.stringify([...workspaceTurnIds].sort());
   let entries: import('node:fs').Dirent[];
   try {
     entries = await fs.readdir(root, { withFileTypes: true });
@@ -1457,19 +1473,20 @@ async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cach
     const stat = await fs.stat(file).catch(() => undefined);
     if (!stat?.isFile()) continue;
     const cached = cache.get(file);
-    if (cached?.size === stat.size && cached.modified === stat.mtimeMs) {
+    const fileIsCached = cached?.size === stat.size && cached.modified === stat.mtimeMs;
+    if (fileIsCached && cached.workspaceStoragePath === workspaceStoragePath && cached.workspaceTurnSignature === workspaceTurnSignature) {
       records.push(...cached.records);
       continue;
     }
 
-    const text = await fs.readFile(file, 'utf8').catch(() => undefined);
-    if (text === undefined) continue;
     const sessionId = path.basename(file, '.jsonl');
-    const parsedRecords = parseAgentHostUsageLog(text);
-    const workspaceStoragePath = path.dirname((context.storageUri ?? context.logUri).fsPath);
-    const chatsByTurn = await persistedChatsByTurn(workspaceStoragePath);
+    const sourceRecords = fileIsCached
+      ? cached.sourceRecords
+      : await fs.readFile(file, 'utf8').then(parseAgentHostUsageLog).catch(() => undefined);
+    if (!sourceRecords) continue;
+    const workspaceRecords = filterAgentHostUsageForWorkspace(sourceRecords, workspaceTurnIds, sessionId, workspaceChatIds);
     const sessionTitle = await readPersistedChatTitle(workspaceStoragePath, sessionId);
-    const usageRecords = parsedRecords.map(record => {
+    const usageRecords = workspaceRecords.map(record => {
       const persistedChat = record.turnId ? chatsByTurn.get(record.turnId) : undefined;
       const journalTitle = persistedChat?.title && persistedChat.titleSource
         ? { title: persistedChat.title, titleSource: persistedChat.titleSource }
@@ -1486,7 +1503,7 @@ async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cach
         ...(persistedChat?.firstUserMessage ? { firstUserMessage: persistedChat.firstUserMessage } : {})
       };
     });
-    cache.set(file, { size: stat.size, modified: stat.mtimeMs, records: usageRecords });
+    cache.set(file, { size: stat.size, modified: stat.mtimeMs, workspaceStoragePath, workspaceTurnSignature, sourceRecords, records: usageRecords });
     records.push(...usageRecords);
   }
   return records;
@@ -1639,7 +1656,7 @@ class DebugUsageCollector implements vscode.Disposable {
 
       if (newRecords.length) {
         await fs.mkdir(path.dirname(output), { recursive: true });
-        await fs.appendFile(output, `${newRecords.map(record => JSON.stringify(record)).join('\n')}\n`, 'utf8');
+        await fs.appendFile(output, `${newRecords.map(record => JSON.stringify(usageRecordForLog(record, this.context))).join('\n')}\n`, 'utf8');
         for (const record of newRecords) this.seen.add(record.requestId);
         for (const record of newRecords) await updateChatMetadata(record);
         invalidateUsageRecordsCache();

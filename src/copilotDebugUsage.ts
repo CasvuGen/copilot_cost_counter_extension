@@ -129,3 +129,9 @@ export function parseAgentHostUsageLog(text: string): AgentHostUsageRecord[] {
     return { ...record, nanoAiu: Math.max(0, record.nanoAiu - previous) };
   });
 }
+
+export function filterAgentHostUsageForWorkspace(records: readonly AgentHostUsageRecord[], workspaceTurnIds: ReadonlySet<string>, sessionId: string, workspaceChatIds: ReadonlySet<string>): AgentHostUsageRecord[] {
+  return records.filter(record => record.turnId
+    ? workspaceTurnIds.has(record.turnId)
+    : workspaceChatIds.has(sessionId));
+}
