@@ -1680,6 +1680,15 @@ class DebugUsageCollector implements vscode.Disposable {
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const report = new UsageReportProvider(await loadReportTemplates(context.extensionUri.fsPath));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider('copilotCostCounter.report', report));
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (folder) {
+    const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, `${usageDirectory}/usage*.jsonl`));
+    const refreshFromDisk = (): void => {
+      invalidateUsageRecordsCache();
+      void report.refresh();
+    };
+    context.subscriptions.push(watcher, watcher.onDidChange(refreshFromDisk), watcher.onDidCreate(refreshFromDisk), watcher.onDidDelete(refreshFromDisk));
+  }
   const onRecord = async (record?: UsageRecord): Promise<void> => {
     await report.refresh();
     if (record) report.showMoneyBurn(record.costUsd);
