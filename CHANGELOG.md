@@ -2,6 +2,23 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.88:start -->
+## [0.2.88] - 2026-10-21
+
+Compared with version 0.2.87 at commit `e3a1664d3159da45a3faa3a807fd29f0bd4003bf`.
+
+### Summary
+
+- feat: update version to 0.2.87 in package.json, package-lock.json, and README.md; add release notes for version 0.2.87 in CHANGELOG.md
+- feat: add file system watcher for usage records in activate function
+
+### Commits
+
+- `122c9ea` feat: update version to 0.2.87 in package.json, package-lock.json, and README.md; add release notes for version 0.2.87 in CHANGELOG.md
+- `ac02bcf` feat: add file system watcher for usage records in activate function
+
+<!-- release:0.2.88:end -->
+
 <!-- release:0.2.87:start -->
 ## [0.2.87] - 2026-10-21
 
