@@ -27,8 +27,18 @@ test('filters global Agent Host sidecars to sessions and turns persisted in the 
     { apiCallId: 'unassociated-call', inputTokens: 30, outputTokens: 6, ts: '2026-10-20T10:00:02.000Z' }
   ].map(record => JSON.stringify(record)).join('\n'));
 
-  assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(['current-turn']), 'current-chat', new Set(['current-chat'])).map(record => record.key), ['current-call', 'unassociated-call']);
+  assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(['current-turn']), 'other-chat', new Set(['current-chat'])).map(record => record.key), ['current-call']);
   assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(), 'other-chat', new Set(['current-chat'])).map(record => record.key), []);
+});
+
+test('keeps Agent Host records for a known chat while its turn journal is still pending', () => {
+  const records = parseAgentHostUsageLog([
+    { apiCallId: 'pending-turn-call', turnId: 'not-persisted-yet', inputTokens: 10, outputTokens: 2, ts: '2026-10-20T10:00:00.000Z' },
+    { apiCallId: 'missing-turn-call', inputTokens: 20, outputTokens: 4, ts: '2026-10-20T10:00:01.000Z' }
+  ].map(record => JSON.stringify(record)).join('\n'));
+
+  assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(), 'current-chat', new Set(['current-chat'])).map(record => record.key), ['pending-turn-call', 'missing-turn-call']);
+  assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(), 'other-chat', new Set(['current-chat'])), []);
 });
 
 test('extracts measured token, cache, model, and AI-unit fields', () => {

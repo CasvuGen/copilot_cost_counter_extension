@@ -1695,7 +1695,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
   report.setRefreshLog(refreshReport);
   context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.refreshReport', refreshReport));
-  context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', '@ext:local.copilot-cost-counter')));
+  context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${context.extension.id}`)));
   context.subscriptions.push(collectorLifetime);
   context.subscriptions.push(vscode.commands.registerCommand('copilotCostCounter.openUsage', async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
