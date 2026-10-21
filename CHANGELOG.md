@@ -2,6 +2,23 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.87:start -->
+## [0.2.87] - 2026-10-21
+
+Compared with version 0.2.86 at commit `24976d6ce1985ba209b17f69b75aab1236712044`.
+
+### Summary
+
+- feat: update version to 0.2.86 in package.json, package-lock.json, and README.md; add release notes for version 0.2.86 in CHANGELOG.md
+- feat: update filter logic in filterAgentHostUsageForWorkspace function and add related tests
+
+### Commits
+
+- `001a5fa` feat: update version to 0.2.86 in package.json, package-lock.json, and README.md; add release notes for version 0.2.86 in CHANGELOG.md
+- `e3a1664` feat: update filter logic in filterAgentHostUsageForWorkspace function and add related tests
+
+<!-- release:0.2.87:end -->
+
 <!-- release:0.2.86:start -->
 ## [0.2.86] - 2026-10-20
 
