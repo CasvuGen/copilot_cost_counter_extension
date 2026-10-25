@@ -1763,7 +1763,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await migrateLegacyChatDebugFileLoggingSetting();
   } catch (error) {
     console.error('Failed to migrate Copilot Chat debug logging setting', error);
-    await vscode.window.showErrorMessage('Could not migrate the Copilot Chat debug logging setting. Enable chat.agentDebugLog.fileLogging.enabled in VS Code Settings, then reload the window.');
+    await vscode.window.showErrorMessage('Could not migrate the Copilot Chat debug logging setting. Enable github.copilot.chat.agentDebugLog.fileLogging.enabled in VS Code Settings, then reload the window.');
   }
   const report = new UsageReportProvider(await loadReportTemplates(context.extensionUri.fsPath));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider('copilotCostCounter.report', report));

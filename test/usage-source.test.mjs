@@ -21,6 +21,6 @@ test('explicit source preferences are respected', () => {
 });
 
 test('uses Copilot Chat’s supported debug file-logging setting key', () => {
-  assert.equal(copilotChatDebugFileLoggingSetting, 'chat.agentDebugLog.fileLogging.enabled');
-  assert.equal(legacyCopilotChatDebugFileLoggingSetting, 'github.copilot.chat.agentDebugLog.fileLogging.enabled');
+  assert.equal(copilotChatDebugFileLoggingSetting, 'github.copilot.chat.agentDebugLog.fileLogging.enabled');
+  assert.equal(legacyCopilotChatDebugFileLoggingSetting, 'chat.agentDebugLog.fileLogging.enabled');
 });

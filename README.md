@@ -2,7 +2,7 @@
 
 > **Note:** Use this extension at your own discretion. This has been a vibe-coded project from the start, so review its behavior and do not rely on its estimates for billing decisions without independent verification.
 
-**Version:** 0.2.93
+**Version:** 0.2.94
 
 Track GitHub Copilot request activity in VS Code with workspace-local cost, AI-credit, token, model, feature, and conversation reports.
 
@@ -74,7 +74,7 @@ The consent prompt explains that VS Code's local debug logs may contain prompts,
 
 Choose **outputLog** to explicitly use completed output-log requests and Agent Host usage sidecars, or **debugLogs** to explicitly use structured Copilot Chat spans and Agent Host sidecars. To manually enable capture, open **Preferences: Open Settings (UI)** from the Command Palette (`Cmd+Shift+P` on macOS, `Ctrl+Shift+P` on Windows/Linux) and search for:
 
-- `chat.agentDebugLog.fileLogging.enabled` for structured Copilot Chat logs. Reload the window after changing it.
+- `github.copilot.chat.agentDebugLog.fileLogging.enabled` for structured Copilot Chat logs. Reload the window after changing it.
 - `chat.agentHost.agentDebugLog.enabled` for Agent Host usage sidecars.
 
 The report reads only the ledger for the active source: `.copilot/usage.jsonl` for `outputLog` or `.copilot/usage.debug.jsonl` for `debugLogs`. Switching sources does not merge or double-count the ledgers. The structured reader persists usage fields only; it does not store prompt or response text or absolute debug-log paths. Calls found in title and categorization sidecar logs are retained as utility records and excluded from estimated spend totals. Chat titles and turn associations are not currently joined in this mode.
@@ -89,7 +89,7 @@ The extension polls local VS Code and Copilot files. It does not hook into Copil
 | --- | --- | --- |
 | Copilot output log (`outputLog`) | `GitHub Copilot Chat.log` and rotated log files in the active window's extension-host logs, or the configured `copilotCostCounter.logPath` | Newly appended successful `ccreq` request lines. At startup, existing output-log content is skipped. When available, the corresponding `ccreq:<id>.json` VS Code document supplies richer token usage, chat/turn IDs, and tool metadata. |
 | Agent Host usage sidecars | `agentHostUsage/*.jsonl` under VS Code's user-data directory | Per-model-call usage for Agent Host sessions, including Autopilot. Both source modes read these global sidecars, but only import turns present in the current workspace's persisted chat sessions. VS Code capture is opt-in; the first-use prompt can enable `chat.agentHost.agentDebugLog.enabled`. |
-| Copilot Chat structured logs (`debugLogs`) | Per-session JSONL files under Copilot Chat's `GitHub.copilot-chat/debug-logs` storage | Parses `llm_request` spans, including existing history, when `chat.agentDebugLog.fileLogging.enabled` is on. This source also includes Agent Host sidecars. |
+| Copilot Chat structured logs (`debugLogs`) | Per-session JSONL files under Copilot Chat's `GitHub.copilot-chat/debug-logs` storage | Parses `llm_request` spans, including existing history, when `github.copilot.chat.agentDebugLog.fileLogging.enabled` is on. This source also includes Agent Host sidecars. |
 | Persisted VS Code chat sessions | Local chat-session journals and related metadata | Used to associate known turn IDs with chat IDs and titles. Only the resulting identifiers and title metadata are added to the workspace metadata file. |
 
 Each recognized model call is normalized into a usage record. Copilot-reported AI credits (`total_nano_aiu`) take precedence when present; otherwise the extension estimates cost from token counts and its generated model-pricing catalog, with optional per-model overrides. Agent Host AIU values are cumulative within a turn, so the reader converts them to per-call deltas to avoid counting the same turn total repeatedly. Unknown models or missing token counts can leave cost unavailable.
