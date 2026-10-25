@@ -21,3 +21,4 @@ yarn-error.log*
 .timetracker
 _ref/
 remote_data/*
+OLD.copilot/

@@ -2,6 +2,65 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.93:start -->
+## [0.2.93] - 2026-10-25
+
+Compared with version 0.2.92 at commit `c0e5d5bae129c4752f20424ac53169b46a903837`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.93:end -->
+
+<!-- release:0.2.92:start -->
+## [0.2.92] - 2026-10-25
+
+Compared with version 0.2.91 at commit `c0e5d5bae129c4752f20424ac53169b46a903837`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.92:end -->
+
+<!-- release:0.2.91:start -->
+## [0.2.91] - 2026-10-25
+
+Compared with version 0.2.90 at commit `c0e5d5bae129c4752f20424ac53169b46a903837`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.91:end -->
+
+<!-- release:0.2.90:start -->
+## [0.2.90] - 2026-10-25
+
+Compared with version 0.2.89 at commit `c0e5d5bae129c4752f20424ac53169b46a903837`.
+
+### Summary
+
+- No commits were recorded after the previous release commit.
+
+<!-- release:0.2.90:end -->
+
+<!-- release:0.2.89:start -->
+## [0.2.89] - 2026-10-25
+
+Compared with version 0.2.88 at commit `ac02bcf6c99247896b40378a433dcee018ca89c2`.
+
+### Summary
+
+- feat: update version to 0.2.88 in package.json, package-lock.json, and README.md; add release notes for version 0.2.88 in CHANGELOG.md
+
+### Commits
+
+- `c0e5d5b` feat: update version to 0.2.88 in package.json, package-lock.json, and README.md; add release notes for version 0.2.88 in CHANGELOG.md
+
+<!-- release:0.2.89:end -->
+
 <!-- release:0.2.88:start -->
 ## [0.2.88] - 2026-10-21
 

@@ -2,7 +2,7 @@
   "name": "copilot-cost-counter",
   "displayName": "GitHub Copilot Cost Counter",
   "description": "Track GitHub Copilot for VS Code request usage and estimated costs from its output log.",
-  "version": "0.2.88",
+  "version": "0.2.93",
   "publisher": "CasvuGen",
   "license": "MIT",
   "repository": {
@@ -103,16 +103,17 @@
         "copilotCostCounter.logSource": {
           "type": "string",
           "enum": [
+            "auto",
             "outputLog",
             "debugLogs"
           ],
-          "default": "outputLog",
-          "markdownDescription": "Choose the request source. `outputLog` is the default and records new requests plus Agent Host usage sidecars; `debugLogs` also imports Copilot Chat spans. The extension offers to enable Agent Host debug logging on first use. Copilot Chat spans require `github.copilot.chat.agentDebugLog.fileLogging.enabled`."
+          "default": "auto",
+          "markdownDescription": "`auto` (default) uses Copilot Chat debug logs when available and otherwise falls back to the output log; the extension can ask permission to enable local debug capture. `outputLog` reads completed output-log requests and Agent Host usage sidecars. `debugLogs` reads structured Copilot Chat spans and Agent Host sidecars."
         },
         "copilotCostCounter.logPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Optional path override used only with `logSource: outputLog`. Leave empty (recommended) to discover the active VS Code window's Copilot Chat logs automatically; the discovered path is not stored in this setting."
+          "markdownDescription": "Optional path override used when the selected source is `outputLog`. Leave empty (recommended) to discover the active VS Code window's Copilot Chat logs automatically; the discovered path is not stored in this setting."
         },
         "copilotCostCounter.pollIntervalMs": {
           "type": "number",

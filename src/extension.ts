@@ -7,6 +7,13 @@ import { AgentHostUsageRecord, filterAgentHostUsageForWorkspace, parseAgentHostU
 import { takeCompleteLines, type IncrementalLineState } from './incrementalLines';
 import { parseOutputLogUsageLine } from './outputLogUsage';
 import { createPricingLookup, normalizeModel, type ModelPricing, type PricingOverrides, type PricingRow } from './pricing';
+import {
+  copilotChatDebugFileLoggingSetting,
+  legacyCopilotChatDebugFileLoggingSetting,
+  resolveUsageSource,
+  type UsageSource,
+  type UsageSourcePreference
+} from './usageSource';
 import { formatCacheHitRate } from './usageMetrics';
 import generatedPricing from './pricing.generated.json';
 
@@ -16,7 +23,9 @@ const debugUsageFileName = 'usage.debug.jsonl';
 const usageMetadataFileName = 'usage_metadata.json';
 const usageMetadataSchemaId = 3;
 const usageSchemaId = 7;
+const agentHostDebugLoggingSetting = 'chat.agentHost.agentDebugLog.enabled';
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
+let activeUsageSource: UsageSource = 'outputLog';
 
 type GeneratedPricingRow = PricingRow & { since: string };
 type RequestType = 'chat' | 'completion' | 'nextEditSuggestion' | 'utility';
@@ -142,9 +151,7 @@ function invalidateChatMetadataCache(): void {
 }
 
 function activeUsageFileName(): string {
-  return vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'outputLog') === 'debugLogs'
-    ? debugUsageFileName
-    : usageFileName;
+  return activeUsageSource === 'debugLogs' ? debugUsageFileName : usageFileName;
 }
 
 function fillTemplate(template: string, values: Record<string, string>): string {
@@ -1509,30 +1516,110 @@ async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cach
   return records;
 }
 
-async function promptForAgentHostUsageCapture(context: vscode.ExtensionContext): Promise<void> {
-  if (!vscode.workspace.workspaceFolders?.length) return;
-  const settingKey = 'chat.agentHost.agentDebugLog.enabled';
+function isMissingFileSystemEntry(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+}
+
+async function copilotChatDebugLogFiles(context: vscode.ExtensionContext): Promise<string[]> {
+  const root = copilotChatDebugLogRoot(context);
+  let sessions: import('node:fs').Dirent[];
+  try {
+    sessions = await fs.readdir(root, { withFileTypes: true });
+  } catch (error) {
+    if (isMissingFileSystemEntry(error)) return [];
+    throw error;
+  }
+
+  const files: string[] = [];
+  for (const session of sessions) {
+    if (!session.isDirectory()) continue;
+    const sessionPath = path.join(root, session.name);
+    try {
+      const entries = await fs.readdir(sessionPath, { withFileTypes: true });
+      files.push(...entries
+        .filter(entry => entry.isFile() && entry.name.endsWith('.jsonl'))
+        .map(entry => path.join(sessionPath, entry.name)));
+    } catch (error) {
+      if (!isMissingFileSystemEntry(error)) throw error;
+    }
+  }
+  return files;
+}
+
+function copilotChatDebugLogRoot(context: vscode.ExtensionContext): string {
+  const storagePath = context.storageUri
+    ? path.join(path.dirname(context.storageUri.fsPath), 'GitHub.copilot-chat')
+    : path.join(path.dirname(context.globalStorageUri.fsPath), 'GitHub.copilot-chat');
+  return path.join(storagePath, 'debug-logs');
+}
+
+async function configuredUsageSource(context: vscode.ExtensionContext): Promise<UsageSource> {
+  const configured = vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'auto');
+  const preference: UsageSourcePreference = configured === 'outputLog' || configured === 'debugLogs' ? configured : 'auto';
+  const chatDebugLoggingEnabled = vscode.workspace.getConfiguration().get<boolean>(copilotChatDebugFileLoggingSetting, false);
+  let debugLogsAvailable = false;
+  if (preference === 'auto' && !chatDebugLoggingEnabled) {
+    try {
+      debugLogsAvailable = (await copilotChatDebugLogFiles(context)).length > 0;
+    } catch (error) {
+      console.error('Failed to discover Copilot Chat debug logs', error);
+    }
+  }
+  return resolveUsageSource(preference, chatDebugLoggingEnabled, debugLogsAvailable);
+}
+
+async function migrateLegacyChatDebugFileLoggingSetting(): Promise<void> {
   const configuration = vscode.workspace.getConfiguration();
-  if (!configuration.inspect<boolean>(settingKey) || configuration.get<boolean>(settingKey, false)) return;
-  const promptKey = 'agentHostUsageCapturePrompted';
+  if (configuration.inspect<boolean>(legacyCopilotChatDebugFileLoggingSetting)?.globalValue !== true) return;
+
+  if (!configuration.get<boolean>(copilotChatDebugFileLoggingSetting, false)) {
+    await configuration.update(copilotChatDebugFileLoggingSetting, true, vscode.ConfigurationTarget.Global);
+  }
+  await configuration.update(legacyCopilotChatDebugFileLoggingSetting, undefined, vscode.ConfigurationTarget.Global);
+}
+
+async function promptForUsageCapture(context: vscode.ExtensionContext): Promise<void> {
+  if (!vscode.workspace.workspaceFolders?.length) return;
+  const configuration = vscode.workspace.getConfiguration();
+  const sourcePreference = vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'auto');
+  const canEnableChatDebugLogging = sourcePreference !== 'outputLog' && Boolean(configuration.inspect<boolean>(copilotChatDebugFileLoggingSetting));
+  const canEnableAgentHostLogging = Boolean(configuration.inspect<boolean>(agentHostDebugLoggingSetting));
+  const chatDebugLoggingEnabled = configuration.get<boolean>(copilotChatDebugFileLoggingSetting, false);
+  const agentHostLoggingEnabled = configuration.get<boolean>(agentHostDebugLoggingSetting, false);
+  if ((!canEnableChatDebugLogging || chatDebugLoggingEnabled) && (!canEnableAgentHostLogging || agentHostLoggingEnabled)) return;
+
+  const promptKey = 'usageCaptureSetupPromptedV1';
   if (context.globalState.get<boolean>(promptKey)) return;
 
   const choice = await vscode.window.showInformationMessage(
-    'To count Agent Host and Autopilot usage, VS Code must capture Agent Host debug data locally. If you continue without enabling it, that usage will be missing from the report; standard Copilot requests will still be tracked. Copilot Cost Counter reads the usage sidecar and stores summaries in this workspace.',
+    'Copilot Cost Counter can capture additional local usage data for new chats. VS Code debug logs may contain prompts, responses, and tool details. The counter stores usage summaries in this workspace, not that chat content. Enable local capture to improve tracking, or continue with currently available logs.',
     { modal: true },
-    'Enable Agent Host tracking',
-    'Continue with standard tracking'
+    'Enable local usage capture',
+    'Continue with available logs'
   );
   if (!choice) return;
-  if (choice === 'Enable Agent Host tracking') {
+  if (choice === 'Enable local usage capture') {
     try {
-      await configuration.update(settingKey, true, vscode.ConfigurationTarget.Global);
-    } catch {
-      await vscode.window.showErrorMessage('Could not enable Agent Host debug logging. You can enable it in VS Code Settings: chat.agentHost.agentDebugLog.enabled.');
+      if (canEnableChatDebugLogging && !chatDebugLoggingEnabled) {
+        await configuration.update(copilotChatDebugFileLoggingSetting, true, vscode.ConfigurationTarget.Global);
+      }
+      if (canEnableAgentHostLogging && !agentHostLoggingEnabled) {
+        await configuration.update(agentHostDebugLoggingSetting, true, vscode.ConfigurationTarget.Global);
+      }
+    } catch (error) {
+      console.error('Failed to enable local Copilot usage capture', error);
+      await vscode.window.showErrorMessage('Could not enable local Copilot usage capture. You can enable the available debug logging options in VS Code Settings.');
       return;
     }
   }
   await context.globalState.update(promptKey, true);
+  if (choice === 'Enable local usage capture' && canEnableChatDebugLogging && !chatDebugLoggingEnabled) {
+    const reload = await vscode.window.showInformationMessage(
+      'Local usage capture is enabled. Reload the VS Code window to start Copilot Chat file logging.',
+      'Reload Window'
+    );
+    if (reload === 'Reload Window') await vscode.commands.executeCommand('workbench.action.reloadWindow');
+  }
 }
 
 class DebugUsageCollector implements vscode.Disposable {
@@ -1542,6 +1629,7 @@ class DebugUsageCollector implements vscode.Disposable {
   private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
   private timer: ReturnType<typeof setInterval> | undefined;
   private busy = false;
+  private lastReadError: string | undefined;
   private readonly maxReadBytes = 4 * 1024 * 1024;
   private readonly chunkBytes = 1024 * 1024;
 
@@ -1564,25 +1652,7 @@ class DebugUsageCollector implements vscode.Disposable {
   }
 
   private async logFiles(): Promise<string[]> {
-    const storagePath = (this.context.storageUri ?? this.context.logUri).fsPath;
-    const root = path.join(path.dirname(storagePath), 'GitHub.copilot-chat', 'debug-logs');
-    let sessions: import('node:fs').Dirent[];
-    try {
-      sessions = await fs.readdir(root, { withFileTypes: true });
-    } catch {
-      return [];
-    }
-    const files: string[] = [];
-    for (const session of sessions) {
-      if (!session.isDirectory()) continue;
-      try {
-        const entries = await fs.readdir(path.join(root, session.name), { withFileTypes: true });
-        files.push(...entries.filter(entry => entry.isFile() && entry.name.endsWith('.jsonl')).map(entry => path.join(root, session.name, entry.name)));
-      } catch {
-        continue;
-      }
-    }
-    return files.sort();
+    return (await copilotChatDebugLogFiles(this.context)).sort();
   }
 
   private async poll(): Promise<void> {
@@ -1592,6 +1662,11 @@ class DebugUsageCollector implements vscode.Disposable {
     this.busy = true;
     try {
       const output = path.join(folder.uri.fsPath, usageDirectory, debugUsageFileName);
+      const debugLogRoot = copilotChatDebugLogRoot(this.context);
+      await fs.mkdir(debugLogRoot, { recursive: true });
+      for (const directory of new Set([...this.offsets.keys()].map(file => path.dirname(file)))) {
+        await fs.mkdir(directory, { recursive: true });
+      }
       try {
         await fs.access(output);
       } catch {
@@ -1664,7 +1739,13 @@ class DebugUsageCollector implements vscode.Disposable {
         const lastRecord = newRecords[newRecords.length - 1];
         this.status.text = lastRecord.costUsd === null ? '$(pulse) Copilot usage ?' : `$(pulse) Copilot $${formatDecimal(lastRecord.costUsd)}`;
       }
-    } catch {
+      this.lastReadError = undefined;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message !== this.lastReadError) {
+        console.error('Failed to read Copilot debug usage logs', error);
+        this.lastReadError = message;
+      }
       return;
     } finally {
       this.busy = false;
@@ -1678,6 +1759,12 @@ class DebugUsageCollector implements vscode.Disposable {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    await migrateLegacyChatDebugFileLoggingSetting();
+  } catch (error) {
+    console.error('Failed to migrate Copilot Chat debug logging setting', error);
+    await vscode.window.showErrorMessage('Could not migrate the Copilot Chat debug logging setting. Enable chat.agentDebugLog.fileLogging.enabled in VS Code Settings, then reload the window.');
+  }
   const report = new UsageReportProvider(await loadReportTemplates(context.extensionUri.fsPath));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider('copilotCostCounter.report', report));
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -1693,7 +1780,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await report.refresh();
     if (record) report.showMoneyBurn(record.costUsd);
   };
-  let collectorSource = vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'outputLog');
+  let collectorSource = await configuredUsageSource(context);
+  activeUsageSource = collectorSource;
   let collector: UsageCollectorLike = collectorSource === 'debugLogs'
     ? new DebugUsageCollector(context, onRecord)
     : new UsageCollector(context, onRecord);
@@ -1715,32 +1803,45 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (selected?.[0]) await vscode.workspace.getConfiguration('copilotCostCounter').update('logPath', selected[0].fsPath, vscode.ConfigurationTarget.Workspace);
   }));
   let sourceSwitch = Promise.resolve();
-  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
-    if (!event.affectsConfiguration('copilotCostCounter.logSource')) return;
+  const switchUsageSource = async (): Promise<void> => {
+    const nextSource = await configuredUsageSource(context);
+    if (nextSource === collectorSource) return;
+    collector.dispose();
+    collectorSource = nextSource;
+    activeUsageSource = nextSource;
+    collector = nextSource === 'debugLogs'
+      ? new DebugUsageCollector(context, onRecord)
+      : new UsageCollector(context, onRecord);
+    invalidateUsageRecordsCache();
+    await collector.start();
+    await report.refresh();
+  };
+  const queueUsageSourceSwitch = (): void => {
     sourceSwitch = sourceSwitch.then(async () => {
-      const nextSource = vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'outputLog');
-      if (nextSource === collectorSource) return;
-      collector.dispose();
-      collectorSource = nextSource;
-      collector = nextSource === 'debugLogs'
-        ? new DebugUsageCollector(context, onRecord)
-        : new UsageCollector(context, onRecord);
-      invalidateUsageRecordsCache();
-      await collector.start();
-      await report.refresh();
+      await switchUsageSource();
     }).catch(error => {
       console.error('Failed to switch Copilot usage source', error);
     });
-  }));
-  let agentHostPromptHandled = false;
-  const promptForAgentHostCapture = async (): Promise<void> => {
-    if (agentHostPromptHandled || !vscode.workspace.workspaceFolders?.length) return;
-    agentHostPromptHandled = true;
-    await promptForAgentHostUsageCapture(context);
   };
-  context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => void promptForAgentHostCapture()));
-  await promptForAgentHostCapture();
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+    if (event.affectsConfiguration('copilotCostCounter.logSource') || event.affectsConfiguration(copilotChatDebugFileLoggingSetting)) {
+      queueUsageSourceSwitch();
+    }
+  }));
+  let capturePromptPromise: Promise<void> | undefined;
+  const promptForCapture = (): Promise<void> => {
+    if (capturePromptPromise) return capturePromptPromise;
+    capturePromptPromise = promptForUsageCapture(context).finally(() => {
+      capturePromptPromise = undefined;
+    });
+    return capturePromptPromise;
+  };
+  context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    queueUsageSourceSwitch();
+    void promptForCapture();
+  }));
   await collector.start();
+  await promptForCapture();
 }
 
 export function deactivate(): void {}

@@ -6,7 +6,7 @@ const projectRoot = process.env.COPILOT_COST_COUNTER_BACKUP_ROOT
   : path.resolve(new URL('..', import.meta.url).pathname);
 const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
 const backupRoot = path.join(projectRoot, 'versions', packageJson.version, 'codebase');
-const excludedDirectories = new Set(['.copilot', '.git', '.vscode', 'dist', 'node_modules', 'packages', 'versions']);
+const excludedDirectories = new Set(['.copilot', '.git', '.vscode', 'OLD.copilot', 'dist', 'node_modules', 'packages', 'versions']);
 
 try {
   await access(backupRoot);

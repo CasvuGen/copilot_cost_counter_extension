@@ -20,6 +20,8 @@ test('backs up the current codebase before packaging without generated directori
     await writeFile(path.join(projectRoot, 'node_modules', 'dependency', 'generated.js'), 'ignored\n');
     await mkdir(path.join(projectRoot, 'dist'), { recursive: true });
     await writeFile(path.join(projectRoot, 'dist', 'extension.js'), 'ignored\n');
+    await mkdir(path.join(projectRoot, 'OLD.copilot'), { recursive: true });
+    await writeFile(path.join(projectRoot, 'OLD.copilot', 'usage.jsonl'), 'private usage\n');
 
     await runFile(process.execPath, [backupScript], { env: { ...process.env, COPILOT_COST_COUNTER_BACKUP_ROOT: projectRoot } });
 
@@ -28,6 +30,7 @@ test('backs up the current codebase before packaging without generated directori
     assert.equal(await readFile(path.join(backupRoot, 'README.md'), 'utf8'), '# Snapshot source\n');
     await assert.rejects(access(path.join(backupRoot, 'node_modules')));
     await assert.rejects(access(path.join(backupRoot, 'dist')));
+    await assert.rejects(access(path.join(backupRoot, 'OLD.copilot')));
     await writeFile(path.join(projectRoot, 'README.md'), '# Updated source\n');
     const rerun = await runFile(process.execPath, [backupScript], { env: { ...process.env, COPILOT_COST_COUNTER_BACKUP_ROOT: projectRoot } });
     assert.match(rerun.stdout, /Codebase backup already exists/);
