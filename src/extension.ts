@@ -7,11 +7,11 @@ import { AgentHostUsageRecord, filterAgentHostUsageForWorkspace, parseAgentHostU
 import { takeCompleteLines, type IncrementalLineState } from './incrementalLines';
 import { parseOutputLogUsageLine } from './outputLogUsage';
 import { createPricingLookup, normalizeModel, type ModelPricing, type PricingOverrides, type PricingRow } from './pricing';
+import { deduplicateUsageRecords } from './usageDeduplication';
 import {
   copilotChatDebugFileLoggingSetting,
   legacyCopilotChatDebugFileLoggingSetting,
-  resolveUsageSource,
-  type UsageSource,
+  usageSourcesForPreference,
   type UsageSourcePreference
 } from './usageSource';
 import { formatCacheHitRate } from './usageMetrics';
@@ -25,7 +25,7 @@ const usageMetadataSchemaId = 3;
 const usageSchemaId = 7;
 const agentHostDebugLoggingSetting = 'chat.agentHost.agentDebugLog.enabled';
 const pricingSource = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing';
-let activeUsageSource: UsageSource = 'outputLog';
+let activeUsageSource: UsageSourcePreference = 'auto';
 
 type GeneratedPricingRow = PricingRow & { since: string };
 type RequestType = 'chat' | 'completion' | 'nextEditSuggestion' | 'utility';
@@ -126,7 +126,7 @@ type ReportTemplates = {
   empty: string;
 };
 
-type FileCache<T> = { value: T; size: number; modified: number; filePath: string };
+type FileCache<T> = { value: T; signature: string; filePath: string };
 type LogOffset = IncrementalLineState & { offset: number };
 type PersistedChat = { chatId: string; title?: string; titleSource?: 'copilot' | 'firstUserMessage'; firstUserMessage?: string };
 type UsageCollectorLike = vscode.Disposable & { start(): Promise<void>; refresh(): Promise<void> };
@@ -520,25 +520,39 @@ async function readCopilotRequest(requestId: string): Promise<CopilotRequest | u
 async function readUsageRecords(): Promise<ReportRecord[]> {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) return [];
-  const filePath = path.join(folder.uri.fsPath, usageDirectory, activeUsageFileName());
-  try {
-    const stat = await fs.stat(filePath);
-    const cache = usageRecordsCache;
-    if (cache && cache.filePath === filePath && cache.size === stat.size && cache.modified === stat.mtimeMs) return cache.value;
-    const content = await fs.readFile(filePath, 'utf8');
-    const records = content.split(/\r?\n/).filter(Boolean).flatMap(line => {
-      try {
-        const record = JSON.parse(line) as Partial<ReportRecord>;
-        return typeof record.requestId === 'string' ? [{ ...record, schemaId: typeof record.schemaId === 'number' ? record.schemaId : 1 } as ReportRecord] : [];
-      } catch {
-        return [];
-      }
-    });
-    usageRecordsCache = { value: records, size: stat.size, modified: stat.mtimeMs, filePath };
-    return records;
-  } catch {
-    return [];
-  }
+  const fileNames = activeUsageSource === 'auto'
+    ? [usageFileName, debugUsageFileName]
+    : [activeUsageFileName()];
+  const filePaths = fileNames.map(fileName => path.join(folder.uri.fsPath, usageDirectory, fileName));
+  const filePath = filePaths.join('\0');
+  const files = await Promise.all(filePaths.map(async sourcePath => {
+    try {
+      const stat = await fs.stat(sourcePath);
+      return { sourcePath, stat, content: await fs.readFile(sourcePath, 'utf8') };
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return undefined;
+      console.error(`Failed to read Copilot usage ledger: ${sourcePath}`, error);
+      return undefined;
+    }
+  }));
+  const signature = JSON.stringify(files.map((file, index) => file
+    ? [file.sourcePath, file.stat.size, file.stat.mtimeMs]
+    : [filePaths[index], null]));
+  const cache = usageRecordsCache;
+  if (cache && cache.filePath === filePath && cache.signature === signature) return cache.value;
+  const records = files.flatMap(file => file?.content.split(/\r?\n/).filter(Boolean).flatMap(line => {
+    try {
+      const record = JSON.parse(line) as Partial<ReportRecord>;
+      return typeof record.requestId === 'string' ? [{ ...record, schemaId: typeof record.schemaId === 'number' ? record.schemaId : 1 } as ReportRecord] : [];
+    } catch {
+      return [];
+    }
+  }) ?? []);
+  const result = activeUsageSource === 'auto'
+    ? deduplicateUsageRecords(records)
+    : records.sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+  usageRecordsCache = { value: result, signature, filePath };
+  return result;
 }
 
 async function readChatMetadata(): Promise<ChatMetadata[]> {
@@ -548,7 +562,8 @@ async function readChatMetadata(): Promise<ChatMetadata[]> {
   try {
     const stat = await fs.stat(filePath);
     const cache = chatMetadataCache;
-    if (cache && cache.filePath === filePath && cache.size === stat.size && cache.modified === stat.mtimeMs) return cache.value;
+    const signature = `${stat.size}:${stat.mtimeMs}`;
+    if (cache && cache.filePath === filePath && cache.signature === signature) return cache.value;
     const content = await fs.readFile(filePath, 'utf8');
     const value = JSON.parse(content) as { schemaId?: unknown; chats?: unknown };
     if ((value.schemaId !== 1 && value.schemaId !== 2 && value.schemaId !== usageMetadataSchemaId) || !Array.isArray(value.chats)) return [];
@@ -557,7 +572,7 @@ async function readChatMetadata(): Promise<ChatMetadata[]> {
       const { title: _title, titleHistory: _titleHistory, titleSource: _titleSource, ...legacyChat } = chat;
       return { ...legacyChat, title: `Chat ${legacyChat.chatId.slice(0, 12)}`, titleSource: 'unavailable' as const };
     });
-    chatMetadataCache = { value: chats, size: stat.size, modified: stat.mtimeMs, filePath };
+    chatMetadataCache = { value: chats, signature, filePath };
     return chats;
   } catch {
     return [];
@@ -860,11 +875,13 @@ class UsageCollector implements vscode.Disposable {
   private readonly maxLogReadBytes = 4 * 1024 * 1024;
   private readonly logReadChunkBytes = 1024 * 1024;
 
-  constructor(private readonly context: vscode.ExtensionContext, private readonly onRecord: (record?: UsageRecord) => void | Promise<void>) {
+  constructor(private readonly context: vscode.ExtensionContext, private readonly onRecord: (record?: UsageRecord) => void | Promise<void>, showStatus = true) {
     this.status.command = 'copilotCostCounter.openUsage';
-    this.status.text = '$(pulse) Copilot usage';
-    this.status.tooltip = 'Open Copilot usage records';
-    this.status.show();
+    this.status.text = vscode.workspace.workspaceFolders?.length ? '$(pulse) Copilot usage' : '$(info) Open workspace';
+    this.status.tooltip = vscode.workspace.workspaceFolders?.length
+      ? 'Open Copilot usage records for this workspace'
+      : 'Usage records are stored per workspace. Open a folder to start capture.';
+    if (showStatus) this.status.show();
   }
 
   async start(): Promise<void> {
@@ -1374,6 +1391,7 @@ function usageRecordFromDebugSpan(span: NonNullable<ReturnType<typeof parseCopil
     timestamp: new Date(span.timestamp).toISOString(),
     sourceLog: ['copilot-debug', sessionId, path.basename(sourceLog)].join('/'),
     requestId: `debug:${sessionId}:${span.key}`,
+    ...(span.turnId ? { turnId: span.turnId } : {}),
     model: span.model,
     feature,
     requestType: feature === 'chat' ? 'chat' : 'utility',
@@ -1553,19 +1571,9 @@ function copilotChatDebugLogRoot(context: vscode.ExtensionContext): string {
   return path.join(storagePath, 'debug-logs');
 }
 
-async function configuredUsageSource(context: vscode.ExtensionContext): Promise<UsageSource> {
+async function configuredUsageSource(): Promise<UsageSourcePreference> {
   const configured = vscode.workspace.getConfiguration('copilotCostCounter').get<string>('logSource', 'auto');
-  const preference: UsageSourcePreference = configured === 'outputLog' || configured === 'debugLogs' ? configured : 'auto';
-  const chatDebugLoggingEnabled = vscode.workspace.getConfiguration().get<boolean>(copilotChatDebugFileLoggingSetting, false);
-  let debugLogsAvailable = false;
-  if (preference === 'auto' && !chatDebugLoggingEnabled) {
-    try {
-      debugLogsAvailable = (await copilotChatDebugLogFiles(context)).length > 0;
-    } catch (error) {
-      console.error('Failed to discover Copilot Chat debug logs', error);
-    }
-  }
-  return resolveUsageSource(preference, chatDebugLoggingEnabled, debugLogsAvailable);
+  return configured === 'outputLog' || configured === 'debugLogs' ? configured : 'auto';
 }
 
 async function migrateLegacyChatDebugFileLoggingSetting(): Promise<void> {
@@ -1633,11 +1641,13 @@ class DebugUsageCollector implements vscode.Disposable {
   private readonly maxReadBytes = 4 * 1024 * 1024;
   private readonly chunkBytes = 1024 * 1024;
 
-  constructor(private readonly context: vscode.ExtensionContext, private readonly onRecord: (record?: UsageRecord) => void | Promise<void>) {
+  constructor(private readonly context: vscode.ExtensionContext, private readonly onRecord: (record?: UsageRecord) => void | Promise<void>, showStatus = true) {
     this.status.command = 'copilotCostCounter.openUsage';
-    this.status.text = '$(pulse) Copilot usage';
-    this.status.tooltip = 'Open Copilot usage records';
-    this.status.show();
+    this.status.text = vscode.workspace.workspaceFolders?.length ? '$(pulse) Copilot usage' : '$(info) Open workspace';
+    this.status.tooltip = vscode.workspace.workspaceFolders?.length
+      ? 'Open Copilot usage records for this workspace'
+      : 'Usage records are stored per workspace. Open a folder to start capture.';
+    if (showStatus) this.status.show();
   }
 
   async start(): Promise<void> {
@@ -1758,6 +1768,56 @@ class DebugUsageCollector implements vscode.Disposable {
   }
 }
 
+class AutoUsageCollector implements vscode.Disposable {
+  private readonly outputLogCollector: UsageCollector;
+  private readonly debugLogsCollector: DebugUsageCollector;
+  private readonly status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 10);
+  private readonly workspaceFolderListener: vscode.Disposable;
+
+  constructor(context: vscode.ExtensionContext, onRecord: (record?: UsageRecord) => void | Promise<void>) {
+    this.outputLogCollector = new UsageCollector(context, onRecord, false);
+    this.debugLogsCollector = new DebugUsageCollector(context, onRecord, false);
+    this.status.command = 'copilotCostCounter.openUsage';
+    this.updateStatus();
+    this.status.show();
+    this.workspaceFolderListener = vscode.workspace.onDidChangeWorkspaceFolders(() => this.updateStatus());
+  }
+
+  private updateStatus(): void {
+    this.status.text = vscode.workspace.workspaceFolders?.length ? '$(pulse) Copilot usage' : '$(info) Open workspace';
+    this.status.tooltip = vscode.workspace.workspaceFolders?.length
+      ? 'Automatically reading available Copilot usage sources for this workspace'
+      : 'Usage records are stored per workspace. Open a folder to start capture.';
+  }
+
+  async start(): Promise<void> {
+    await Promise.all([this.outputLogCollector.start(), this.debugLogsCollector.start()]);
+  }
+
+  async refresh(): Promise<void> {
+    await Promise.all([this.outputLogCollector.refresh(), this.debugLogsCollector.refresh()]);
+  }
+
+  dispose(): void {
+    this.outputLogCollector.dispose();
+    this.debugLogsCollector.dispose();
+    this.workspaceFolderListener.dispose();
+    this.status.dispose();
+  }
+}
+
+function createUsageCollector(
+  context: vscode.ExtensionContext,
+  preference: UsageSourcePreference,
+  onRecord: (record?: UsageRecord) => void | Promise<void>
+): UsageCollectorLike {
+  const sources = usageSourcesForPreference(preference);
+  if (sources.includes('outputLog') && sources.includes('debugLogs')) return new AutoUsageCollector(context, onRecord);
+  return sources.includes('debugLogs')
+    ? new DebugUsageCollector(context, onRecord)
+    : new UsageCollector(context, onRecord);
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   try {
     await migrateLegacyChatDebugFileLoggingSetting();
@@ -1780,11 +1840,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     await report.refresh();
     if (record) report.showMoneyBurn(record.costUsd);
   };
-  let collectorSource = await configuredUsageSource(context);
+  let collectorSource = await configuredUsageSource();
   activeUsageSource = collectorSource;
-  let collector: UsageCollectorLike = collectorSource === 'debugLogs'
-    ? new DebugUsageCollector(context, onRecord)
-    : new UsageCollector(context, onRecord);
+  let collector: UsageCollectorLike = createUsageCollector(context, collectorSource, onRecord);
   const collectorLifetime: vscode.Disposable = { dispose: () => collector.dispose() };
   const refreshReport = async (): Promise<void> => {
     await collector.refresh();
@@ -1804,14 +1862,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }));
   let sourceSwitch = Promise.resolve();
   const switchUsageSource = async (): Promise<void> => {
-    const nextSource = await configuredUsageSource(context);
+    const nextSource = await configuredUsageSource();
     if (nextSource === collectorSource) return;
     collector.dispose();
     collectorSource = nextSource;
     activeUsageSource = nextSource;
-    collector = nextSource === 'debugLogs'
-      ? new DebugUsageCollector(context, onRecord)
-      : new UsageCollector(context, onRecord);
+    collector = createUsageCollector(context, nextSource, onRecord);
     invalidateUsageRecordsCache();
     await collector.start();
     await report.refresh();

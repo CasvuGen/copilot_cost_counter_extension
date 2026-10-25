@@ -48,13 +48,14 @@ test('extracts measured token, cache, model, and AI-unit fields', () => {
     sid: 'session-1',
     ts: 1_800_000_000_000,
     spanId: 'span-1',
-    attrs: { model: 'model-from-attrs', inputTokens: 120, outputTokens: 40, cachedTokens: 30, copilotUsageNanoAiu: 250_000_000 }
+    attrs: { model: 'model-from-attrs', turnId: 'turn-1', inputTokens: 120, outputTokens: 40, cachedTokens: 30, copilotUsageNanoAiu: 250_000_000 }
   }));
   assert.deepEqual(span, {
     key: 'span-1',
     sessionId: 'session-1',
     timestamp: 1_800_000_000_000,
     model: 'model-from-attrs',
+    turnId: 'turn-1',
     inputTokens: 120,
     outputTokens: 40,
     cachedTokens: 30,

@@ -2,11 +2,11 @@
 
 > **Note:** Use this extension at your own discretion. This has been a vibe-coded project from the start, so review its behavior and do not rely on its estimates for billing decisions without independent verification.
 
-**Version:** 0.2.94
+**Version:** 0.2.95
 
 Track GitHub Copilot request activity in VS Code with workspace-local cost, AI-credit, token, model, feature, and conversation reports.
 
-Copilot Cost Counter is a companion extension for GitHub Copilot for VS Code. By default, it reads completed request entries from Copilot's output log; an optional structured debug-log source can read Copilot's recorded token spans and existing history. It records summaries in the current workspace and does not send usage data to a separate service.
+Copilot Cost Counter is a companion extension for GitHub Copilot for VS Code. By default, it reads completed requests from Copilot's output log and structured token spans when available, plus Agent Host usage sidecars. It records summaries in the current workspace and does not send usage data to a separate service.
 
 > **Important:** This extension is not affiliated with or endorsed by GitHub or Microsoft. Cost values are estimates unless Copilot provides an authoritative AI-credit total. Read [Recorded Data And Limits](#recorded-data-and-limits) before relying on the figures for billing decisions.
 
@@ -66,7 +66,7 @@ Copilot Chat's optional debug-file logging is separate from the counter's ledger
 
 ## Measurement Source
 
-`copilotCostCounter.logSource` defaults to `auto`. It selects Copilot Chat's structured debug logs when file logging is enabled or matching logs already exist; otherwise it uses the extension-host output log. If additional debug capture is available but disabled, the extension asks once before enabling it. Accepting enables the available Copilot Chat and Agent Host debug-capture settings in User settings and offers to reload VS Code. Declining leaves the currently available tracking in place. Debug capture only records new activity; it cannot recreate turns from before logging was enabled.
+`copilotCostCounter.logSource` defaults to `auto`. It reads both the active window's Copilot Chat output log and its structured debug logs, along with Agent Host usage sidecars, when those sources are available. The report combines the source ledgers and removes duplicate model calls when turn, model, token counts, and timestamps provide a reliable match. If additional debug capture is available but disabled, the extension asks once before enabling it. Accepting enables the available Copilot Chat and Agent Host debug-capture settings in User settings and offers to reload VS Code. Declining leaves output-log tracking available. Debug capture only records new activity; it cannot recreate turns from before logging was enabled.
 
 The consent prompt explains that VS Code's local debug logs may contain prompts, responses, and tool details. Copilot Cost Counter does not copy that chat content into its usage ledgers. Structured logs can use Copilot's recorded AI-unit values, but rely on undocumented formats that may change.
 
@@ -77,7 +77,7 @@ Choose **outputLog** to explicitly use completed output-log requests and Agent H
 - `github.copilot.chat.agentDebugLog.fileLogging.enabled` for structured Copilot Chat logs. Reload the window after changing it.
 - `chat.agentHost.agentDebugLog.enabled` for Agent Host usage sidecars.
 
-The report reads only the ledger for the active source: `.copilot/usage.jsonl` for `outputLog` or `.copilot/usage.debug.jsonl` for `debugLogs`. Switching sources does not merge or double-count the ledgers. The structured reader persists usage fields only; it does not store prompt or response text or absolute debug-log paths. Calls found in title and categorization sidecar logs are retained as utility records and excluded from estimated spend totals. Chat titles and turn associations are not currently joined in this mode.
+In `auto`, the report combines `.copilot/usage.jsonl` and `.copilot/usage.debug.jsonl`. Explicit `outputLog` and `debugLogs` modes read only their corresponding ledger. The structured reader persists usage fields only; it does not store prompt or response text or absolute debug-log paths. Calls found in title and categorization sidecar logs are retained as utility records and excluded from estimated spend totals. Chat titles and turn associations are not currently joined in this mode.
 
 The Tokens tab's cache hit rate is cached input tokens divided by prompt tokens across the selected ledger. It is unavailable when prompt-token counts are missing and does not estimate which parts of the prompt came from history, system instructions, or tool schemas.
 
@@ -88,13 +88,13 @@ The extension polls local VS Code and Copilot files. It does not hook into Copil
 | Input | Data read | Coverage |
 | --- | --- | --- |
 | Copilot output log (`outputLog`) | `GitHub Copilot Chat.log` and rotated log files in the active window's extension-host logs, or the configured `copilotCostCounter.logPath` | Newly appended successful `ccreq` request lines. At startup, existing output-log content is skipped. When available, the corresponding `ccreq:<id>.json` VS Code document supplies richer token usage, chat/turn IDs, and tool metadata. |
-| Agent Host usage sidecars | `agentHostUsage/*.jsonl` under VS Code's user-data directory | Per-model-call usage for Agent Host sessions, including Autopilot. Both source modes read these global sidecars, but only import turns present in the current workspace's persisted chat sessions. VS Code capture is opt-in; the first-use prompt can enable `chat.agentHost.agentDebugLog.enabled`. |
+| Agent Host usage sidecars | `agentHostUsage/*.jsonl` under VS Code's user-data directory | Per-model-call usage for Agent Host sessions, including Autopilot. Sidecars are filtered to chats or turns persisted in the current workspace. VS Code capture is opt-in; the first-use prompt can enable `chat.agentHost.agentDebugLog.enabled`. |
 | Copilot Chat structured logs (`debugLogs`) | Per-session JSONL files under Copilot Chat's `GitHub.copilot-chat/debug-logs` storage | Parses `llm_request` spans, including existing history, when `github.copilot.chat.agentDebugLog.fileLogging.enabled` is on. This source also includes Agent Host sidecars. |
 | Persisted VS Code chat sessions | Local chat-session journals and related metadata | Used to associate known turn IDs with chat IDs and titles. Only the resulting identifiers and title metadata are added to the workspace metadata file. |
 
 Each recognized model call is normalized into a usage record. Copilot-reported AI credits (`total_nano_aiu`) take precedence when present; otherwise the extension estimates cost from token counts and its generated model-pricing catalog, with optional per-model overrides. Agent Host AIU values are cumulative within a turn, so the reader converts them to per-call deltas to avoid counting the same turn total repeatedly. Unknown models or missing token counts can leave cost unavailable.
 
-The selected source writes to `.copilot/usage.jsonl` (`outputLog`) or `.copilot/usage.debug.jsonl` (`debugLogs`). Chat names and associations are stored separately in `.copilot/usage_metadata.json`. These ledgers are not merged when the source changes. The extension stores usage summaries and metadata, not prompts, responses, or tool arguments; VS Code's own Agent Host debug capture is separate and may retain additional local session-debug data. Copilot log formats are undocumented and can change between releases.
+Output-log records are written to `.copilot/usage.jsonl`; structured debug records are written to `.copilot/usage.debug.jsonl`. In `auto`, the report reads both ledgers and deduplicates matching calls; explicit source modes display only their selected ledger. Chat names and associations are stored separately in `.copilot/usage_metadata.json`. The report and ledgers remain scoped to the current workspace; a separate window or workspace has a separate view. Open a workspace folder to enable capture. The extension stores usage summaries and metadata, not prompts, responses, or tool arguments; VS Code's own Agent Host debug capture is separate and may retain additional local session-debug data. Copilot log formats are undocumented and can change between releases.
 
 ## Configure The Log
 
@@ -103,7 +103,7 @@ The `copilotCostCounter.logPath` setting is intentionally empty by default. An e
 1. Run `Copilot Cost Counter: Choose Output Log` and select the log file.
 2. Set `copilotCostCounter.logPath` in workspace settings. Relative paths are resolved from the first workspace folder; absolute paths are accepted.
 
-In the default `outputLog` mode, the extension starts at the end of logs that already exist when it activates, then records each newly completed `ccreq` request once. This prevents extension reinstalls or deletion of `.copilot/usage.jsonl` from replaying historical VS Code logs. The `debugLogs` mode instead reads existing structured history incrementally. Use `Copilot Cost Counter: Open Workspace Usage` to open the selected source's ledger.
+In `outputLog` mode, the extension starts at the end of logs that already exist when it activates, then records each newly completed `ccreq` request once. This prevents extension reinstalls or deletion of `.copilot/usage.jsonl` from replaying historical VS Code logs. The `debugLogs` mode reads existing structured history incrementally. In `auto`, both ledgers contribute to the report. Use `Copilot Cost Counter: Open Workspace Usage` to open the output-log ledger; the structured ledger is `.copilot/usage.debug.jsonl`.
 
 Use the Usage Report view title menu for Refresh and Open Workspace Usage. The gear button beside that menu opens the extension settings.
 
@@ -120,7 +120,7 @@ After installation, select the **Copilot Cost Counter** graph icon in the Activi
 - Cost and request counts by model
 - The twenty most recent requests
 
-Use **Refresh** in the report when needed. The report also refreshes when the extension appends a new request. Values are calculated only from records written to the current workspace’s `.copilot/usage.jsonl`. When a `ccreq` document contains `usage.copilot_usage.total_nano_aiu`, that Copilot-reported AI-credit total is authoritative, including an explicit zero; token-price calculations are used only as a fallback when the AIU total is absent.
+Use **Refresh** in the report when needed. The report also refreshes when the extension appends a new request. In the default `auto` mode, values are calculated from both usage ledgers in the current workspace’s `.copilot` directory. Explicit source modes use only their selected ledger. When a `ccreq` document contains `usage.copilot_usage.total_nano_aiu`, that Copilot-reported AI-credit total is authoritative, including an explicit zero; token-price calculations are used only as a fallback when the AIU total is absent.
 
 Use the **Credits** and **Tokens** tabs to switch between dollar/AI-credit totals and token totals. The **Spend** selector switches the chart among daily activity, the highest-cost conversations, and the highest-cost Copilot features; its selection persists when new data refreshes the report. The lower **Activity** section has **Recent requests** and **Chats** tabs. Chats include regular chat orchestration such as `backgroundTodoAgent` and `tool/runSubagent-*`; subagent costs are assigned to their parent chat turn when Copilot logs that relationship. Completions, next-edit suggestions such as `copilot-nes-lysithea-24`, and utility requests such as `XtabProvider` are excluded. Chat requests are grouped as conversation, turn, and individual request only when Copilot exposes an explicit conversation ID or a title utility result that can provide a fallback identity. Generic session IDs are not used as conversation IDs because they can span multiple chats. Requests before the first reliable chat identity remain visible in Recent requests and usage totals but are not merged into a misleading `Older requests without chat metadata` conversation. For identified chats, the extension resolves names from explicit Copilot titles or the persisted first user message associated with that conversation. Unnamed chats are shown by a shortened conversation ID. Chat titles, chat IDs, observed turn IDs, and timestamps are maintained in the versioned `.copilot/usage_metadata.json` document; request usage and cost records remain in `.copilot/usage.jsonl`. The extension cannot open a private Copilot chat panel directly through the public VS Code API. The selected tabs persist when new data refreshes the report.
 

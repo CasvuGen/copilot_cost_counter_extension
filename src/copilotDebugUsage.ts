@@ -5,6 +5,7 @@ export type CopilotDebugSpan = {
   sessionId: string;
   timestamp: number;
   model: string;
+  turnId?: string;
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
@@ -60,12 +61,14 @@ export function parseCopilotDebugSpan(line: string): CopilotDebugSpan | undefine
   const model = typeof attrs.model === 'string' && attrs.model ? attrs.model : event.name.slice('chat:'.length);
   if (!model) return undefined;
   const nanoAiu = nonNegativeNumber(attrs.copilotUsageNanoAiu);
+  const turnId = typeof attrs.turnId === 'string' && attrs.turnId ? attrs.turnId : undefined;
 
   return {
     key,
     sessionId,
     timestamp,
     model,
+    ...(turnId ? { turnId } : {}),
     inputTokens,
     outputTokens,
     cachedTokens: nonNegativeNumber(attrs.cachedTokens) ?? 0,

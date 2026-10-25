@@ -3,21 +3,16 @@ import test from 'node:test';
 import {
   copilotChatDebugFileLoggingSetting,
   legacyCopilotChatDebugFileLoggingSetting,
-  resolveUsageSource
+  usageSourcesForPreference
 } from '../dist/usageSource.js';
 
-test('auto prefers structured logs when logging is enabled or files already exist', () => {
-  assert.equal(resolveUsageSource('auto', true, false), 'debugLogs');
-  assert.equal(resolveUsageSource('auto', false, true), 'debugLogs');
-});
-
-test('auto falls back to output logs when structured logs are unavailable', () => {
-  assert.equal(resolveUsageSource('auto', false, false), 'outputLog');
+test('auto reads both available sources instead of selecting one from a setting flag', () => {
+  assert.deepEqual(usageSourcesForPreference('auto'), ['outputLog', 'debugLogs']);
 });
 
 test('explicit source preferences are respected', () => {
-  assert.equal(resolveUsageSource('outputLog', true, true), 'outputLog');
-  assert.equal(resolveUsageSource('debugLogs', false, false), 'debugLogs');
+  assert.deepEqual(usageSourcesForPreference('outputLog'), ['outputLog']);
+  assert.deepEqual(usageSourcesForPreference('debugLogs'), ['debugLogs']);
 });
 
 test('uses Copilot Chat’s supported debug file-logging setting key', () => {

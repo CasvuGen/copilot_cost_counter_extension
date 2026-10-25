@@ -2,6 +2,21 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.95:start -->
+## [0.2.95] - 2026-10-25
+
+Compared with version 0.2.94 at commit `1e611285f4634881db89c0adb25b9456eda1531a`.
+
+### Summary
+
+- feat: update version to 0.2.94; adjust logging settings and improve test cases
+
+### Commits
+
+- `34130b7` feat: update version to 0.2.94; adjust logging settings and improve test cases
+
+<!-- release:0.2.95:end -->
+
 <!-- release:0.2.94:start -->
 ## [0.2.94] - 2026-10-25
 

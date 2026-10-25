@@ -2,7 +2,7 @@
   "name": "copilot-cost-counter",
   "displayName": "GitHub Copilot Cost Counter",
   "description": "Track GitHub Copilot for VS Code request usage and estimated costs from its output log.",
-  "version": "0.2.94",
+  "version": "0.2.95",
   "publisher": "CasvuGen",
   "license": "MIT",
   "repository": {
@@ -108,7 +108,7 @@
             "debugLogs"
           ],
           "default": "auto",
-          "markdownDescription": "`auto` (default) uses Copilot Chat debug logs when available and otherwise falls back to the output log; the extension can ask permission to enable local debug capture. `outputLog` reads completed output-log requests and Agent Host usage sidecars. `debugLogs` reads structured Copilot Chat spans and Agent Host sidecars."
+          "markdownDescription": "`auto` (default) reads both output-log requests and structured Copilot Chat spans when available, plus Agent Host usage sidecars, and combines them in this workspace's report. Duplicate model calls are removed when their turn, model, token counts, and timestamps match. The extension can ask permission to enable local debug capture. `outputLog` and `debugLogs` limit capture to their respective source."
         },
         "copilotCostCounter.logPath": {
           "type": "string",
@@ -119,7 +119,7 @@
           "type": "number",
           "default": 1000,
           "minimum": 250,
-          "markdownDescription": "How often to check the selected Copilot log source for completed requests."
+          "markdownDescription": "How often to check the configured Copilot usage sources for completed requests."
         },
         "copilotCostCounter.showMoneyBurn": {
           "type": "boolean",
