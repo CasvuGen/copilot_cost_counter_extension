@@ -2,6 +2,21 @@
 
 Release summaries are generated from Git commit messages when a version is packaged.
 
+<!-- release:0.2.96:start -->
+## [0.2.96] - 2026-10-26
+
+Compared with version 0.2.95 at commit `34130b73b6baadbefbf7c9e8199426c885ceea25`.
+
+### Summary
+
+- feat: improve usage tracking by combining output-log and debug-log sources, add deduplication logic for usage records, and update related tests
+
+### Commits
+
+- `0ec76c9` feat: improve usage tracking by combining output-log and debug-log sources, add deduplication logic for usage records, and update related tests
+
+<!-- release:0.2.96:end -->
+
 <!-- release:0.2.95:start -->
 ## [0.2.95] - 2026-10-25
 
