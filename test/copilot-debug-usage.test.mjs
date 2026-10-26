@@ -41,6 +41,22 @@ test('keeps Agent Host records for a known chat while its turn journal is still 
   assert.deepEqual(filterAgentHostUsageForWorkspace(records, new Set(), 'other-chat', new Set(['current-chat'])), []);
 });
 
+test('matches Agent Host sidecar filenames to Copilot chat session URIs', () => {
+  const records = parseAgentHostUsageLog([
+    { apiCallId: 'workspace-call', inputTokens: 10, outputTokens: 2, ts: '2026-10-20T10:00:00.000Z' },
+    { apiCallId: 'other-call', inputTokens: 20, outputTokens: 4, ts: '2026-10-20T10:00:01.000Z' }
+  ].map(record => JSON.stringify(record)).join('\n'));
+
+  assert.deepEqual(
+    filterAgentHostUsageForWorkspace(records, new Set(), 'agent-host-copilotcli__current-chat', new Set(['agent-host-copilotcli:/current-chat'])).map(record => record.key),
+    ['workspace-call', 'other-call']
+  );
+  assert.deepEqual(
+    filterAgentHostUsageForWorkspace(records, new Set(), 'agent-host-copilotcli__other-chat', new Set(['agent-host-copilotcli:/current-chat'])),
+    []
+  );
+});
+
 test('extracts measured token, cache, model, and AI-unit fields', () => {
   const span = parseCopilotDebugSpan(JSON.stringify({
     type: 'llm_request',

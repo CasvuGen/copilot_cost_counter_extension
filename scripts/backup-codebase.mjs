@@ -25,3 +25,4 @@ for (const entry of await readdir(projectRoot)) {
 
 console.log(`Backed up codebase ${packageJson.version} to ${backupRoot}`);
 
+

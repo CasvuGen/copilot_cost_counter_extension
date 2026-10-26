@@ -14,6 +14,7 @@ import {
   usageSourcesForPreference,
   type UsageSourcePreference
 } from './usageSource';
+import { ensureWorkspaceUsageDirectory } from './usageStorage';
 import { formatCacheHitRate } from './usageMetrics';
 import generatedPricing from './pricing.generated.json';
 
@@ -1483,8 +1484,9 @@ async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cach
   let entries: import('node:fs').Dirent[];
   try {
     entries = await fs.readdir(root, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (error) {
+    if (isMissingFileSystemEntry(error)) return [];
+    throw error;
   }
 
   const files = entries.filter(entry => entry.isFile() && entry.name.endsWith('.jsonl')).map(entry => path.join(root, entry.name));
@@ -1505,9 +1507,18 @@ async function readAgentHostUsageSidecars(context: vscode.ExtensionContext, cach
     }
 
     const sessionId = path.basename(file, '.jsonl');
-    const sourceRecords = fileIsCached
-      ? cached.sourceRecords
-      : await fs.readFile(file, 'utf8').then(parseAgentHostUsageLog).catch(() => undefined);
+    let sourceRecords: AgentHostUsageRecord[] | undefined;
+    if (fileIsCached) {
+      sourceRecords = cached.sourceRecords;
+    } else {
+      try {
+        sourceRecords = parseAgentHostUsageLog(await fs.readFile(file, 'utf8'));
+      } catch (error) {
+        if (!isMissingFileSystemEntry(error)) {
+          console.error(`Failed to read Agent Host usage sidecar: ${file}`, error);
+        }
+      }
+    }
     if (!sourceRecords) continue;
     const workspaceRecords = filterAgentHostUsageForWorkspace(sourceRecords, workspaceTurnIds, sessionId, workspaceChatIds);
     const sessionTitle = await readPersistedChatTitle(workspaceStoragePath, sessionId);
@@ -1827,6 +1838,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
   const report = new UsageReportProvider(await loadReportTemplates(context.extensionUri.fsPath));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider('copilotCostCounter.report', report));
+  const ensureCurrentWorkspaceUsageDirectory = async (): Promise<void> => {
+    const workspace = vscode.workspace.workspaceFolders?.[0];
+    if (!workspace) return;
+    try {
+      await ensureWorkspaceUsageDirectory(workspace.uri.fsPath);
+    } catch (error) {
+      console.error('Failed to create the workspace Copilot usage directory', error);
+      await vscode.window.showErrorMessage('Copilot Cost Counter could not create the .copilot folder in this workspace.');
+    }
+  };
+  await ensureCurrentWorkspaceUsageDirectory();
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (folder) {
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, `${usageDirectory}/usage*.jsonl`));
@@ -1893,6 +1915,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return capturePromptPromise;
   };
   context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    void ensureCurrentWorkspaceUsageDirectory();
     queueUsageSourceSwitch();
     void promptForCapture();
   }));

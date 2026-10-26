@@ -60,7 +60,7 @@ Restart or reload VS Code after installation. Once published, the extension can 
 
 ## Privacy
 
-The extension stores only request metadata and calculated usage summaries in `.copilot/usage.jsonl`, `.copilot/usage.debug.jsonl`, and `.copilot/usage_metadata.json` inside the current workspace. It deliberately does not persist prompts, responses, tool arguments, or raw Copilot request documents. Request IDs, model names, feature names, timestamps, token counts, tool names, chat titles, and conversation IDs may still be sensitive in some workspaces. Keep the `.copilot` directory private and do not commit it to a public repository.
+The extension creates a `.copilot` directory when it activates in a workspace and stores request metadata and calculated usage summaries there in `usage.jsonl`, `usage.debug.jsonl`, and `usage_metadata.json`. It deliberately does not persist prompts, responses, tool arguments, or raw Copilot request documents. Request IDs, model names, feature names, timestamps, token counts, tool names, chat titles, and conversation IDs may still be sensitive in some workspaces. Keep the `.copilot` directory private and do not commit it to a public repository.
 
 Copilot Chat's optional debug-file logging is separate from the counter's ledger and may retain prompts, responses, and tool details on your device. The extension asks before enabling available debug-capture settings and never turns them on silently.
 

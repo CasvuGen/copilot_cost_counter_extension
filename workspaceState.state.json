@@ -1,0 +1,3720 @@
+{
+  "workspaceFoldersFilePaths": [
+    "./"
+  ],
+  "symbols": [
+    {
+      "name": "AgentHostSidecarCache",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 78,
+        "character": 0
+      },
+      "end": {
+        "line": 78,
+        "character": 202
+      }
+    },
+    {
+      "name": "AgentHostUsageRecord",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 14,
+        "character": 0
+      },
+      "end": {
+        "line": 25,
+        "character": 2
+      }
+    },
+    {
+      "name": "AutoUsageCollector",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1770,
+        "character": 0
+      },
+      "end": {
+        "line": 1806,
+        "character": 1
+      }
+    },
+    {
+      "name": "ChatMetadata",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 90,
+        "character": 0
+      },
+      "end": {
+        "line": 98,
+        "character": 2
+      }
+    },
+    {
+      "name": "ConversationTurn",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/conversationContext.ts",
+      "start": {
+        "line": 0,
+        "character": 0
+      },
+      "end": {
+        "line": 0,
+        "character": 66
+      }
+    },
+    {
+      "name": "CopilotDebugSpan",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 2,
+        "character": 0
+      },
+      "end": {
+        "line": 12,
+        "character": 2
+      }
+    },
+    {
+      "name": "CopilotRequest",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 110,
+        "character": 0
+      },
+      "end": {
+        "line": 110,
+        "character": 155
+      }
+    },
+    {
+      "name": "CopilotSessionMetadata",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/chatMetadata.ts",
+      "start": {
+        "line": 0,
+        "character": 0
+      },
+      "end": {
+        "line": 5,
+        "character": 2
+      }
+    },
+    {
+      "name": "CopilotSessionMetadata",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 111,
+        "character": 0
+      },
+      "end": {
+        "line": 111,
+        "character": 56
+      }
+    },
+    {
+      "name": "CopilotUsage",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 101,
+        "character": 0
+      },
+      "end": {
+        "line": 108,
+        "character": 2
+      }
+    },
+    {
+      "name": "CopilotUsageTokenDetail",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 109,
+        "character": 0
+      },
+      "end": {
+        "line": 109,
+        "character": 139
+      }
+    },
+    {
+      "name": "DebugUsageCollector",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1632,
+        "character": 0
+      },
+      "end": {
+        "line": 1768,
+        "character": 1
+      }
+    },
+    {
+      "name": "DeduplicableUsageRecord",
+      "kind": 4,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 0,
+        "character": 0
+      },
+      "end": {
+        "line": 15,
+        "character": 2
+      }
+    },
+    {
+      "name": "_title",
+      "kind": 12,
+      "containerName": "readChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 571,
+        "character": 14
+      },
+      "end": {
+        "line": 571,
+        "character": 27
+      }
+    },
+    {
+      "name": "_titleHistory",
+      "kind": 12,
+      "containerName": "readChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 571,
+        "character": 29
+      },
+      "end": {
+        "line": 571,
+        "character": 56
+      }
+    },
+    {
+      "name": "_titleSource",
+      "kind": 12,
+      "containerName": "readChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 571,
+        "character": 58
+      },
+      "end": {
+        "line": 571,
+        "character": 83
+      }
+    },
+    {
+      "name": "activate()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1820,
+        "character": 0
+      },
+      "end": {
+        "line": 1900,
+        "character": 1
+      }
+    },
+    {
+      "name": "activeUsageFileName()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 152,
+        "character": 0
+      },
+      "end": {
+        "line": 154,
+        "character": 1
+      }
+    },
+    {
+      "name": "activeUsageSource",
+      "kind": 12,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 27,
+        "character": 4
+      },
+      "end": {
+        "line": 27,
+        "character": 53
+      }
+    },
+    {
+      "name": "agentHostDebugLoggingSetting",
+      "kind": 12,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 25,
+        "character": 6
+      },
+      "end": {
+        "line": 25,
+        "character": 75
+      }
+    },
+    {
+      "name": "agentHostLoggingEnabled",
+      "kind": 12,
+      "containerName": "promptForUsageCapture",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1595,
+        "character": 8
+      },
+      "end": {
+        "line": 1595,
+        "character": 97
+      }
+    },
+    {
+      "name": "agentHostSidecars",
+      "kind": 7,
+      "containerName": "UsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 872,
+        "character": 2
+      },
+      "end": {
+        "line": 872,
+        "character": 72
+      }
+    },
+    {
+      "name": "agentHostSidecars",
+      "kind": 7,
+      "containerName": "DebugUsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1635,
+        "character": 2
+      },
+      "end": {
+        "line": 1635,
+        "character": 72
+      }
+    },
+    {
+      "name": "agentId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 19,
+        "character": 2
+      },
+      "end": {
+        "line": 19,
+        "character": 19
+      }
+    },
+    {
+      "name": "aiCredits",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 72,
+        "character": 2
+      },
+      "end": {
+        "line": 72,
+        "character": 27
+      }
+    },
+    {
+      "name": "aiCredits",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 11,
+        "character": 2
+      },
+      "end": {
+        "line": 11,
+        "character": 27
+      }
+    },
+    {
+      "name": "aiCredits",
+      "kind": 12,
+      "containerName": "applyCopilotUsage",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 471,
+        "character": 8
+      },
+      "end": {
+        "line": 471,
+        "character": 113
+      }
+    },
+    {
+      "name": "amountUsd",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 723,
+        "character": 10
+      },
+      "end": {
+        "line": 730,
+        "character": 15
+      }
+    },
+    {
+      "name": "amountUsd",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1350,
+        "character": 10
+      },
+      "end": {
+        "line": 1357,
+        "character": 15
+      }
+    },
+    {
+      "name": "apiCallId",
+      "kind": 12,
+      "containerName": "parseAgentHostUsageLog",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 96,
+        "character": 10
+      },
+      "end": {
+        "line": 96,
+        "character": 106
+      }
+    },
+    {
+      "name": "append()",
+      "kind": 5,
+      "containerName": "UsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1326,
+        "character": 2
+      },
+      "end": {
+        "line": 1338,
+        "character": 3
+      }
+    },
+    {
+      "name": "applyCopilotUsage()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 455,
+        "character": 0
+      },
+      "end": {
+        "line": 500,
+        "character": 1
+      }
+    },
+    {
+      "name": "areCrossSourceDuplicates()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 34,
+        "character": 0
+      },
+      "end": {
+        "line": 41,
+        "character": 1
+      }
+    },
+    {
+      "name": "attributes",
+      "kind": 12,
+      "containerName": "parseCopilotDebugSpan",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 44,
+        "character": 8
+      },
+      "end": {
+        "line": 44,
+        "character": 32
+      }
+    },
+    {
+      "name": "attrs",
+      "kind": 12,
+      "containerName": "parseCopilotDebugSpan",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 47,
+        "character": 8
+      },
+      "end": {
+        "line": 47,
+        "character": 53
+      }
+    },
+    {
+      "name": "batch_size",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 109,
+        "character": 33
+      },
+      "end": {
+        "line": 109,
+        "character": 53
+      }
+    },
+    {
+      "name": "billableRecords",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 747,
+        "character": 8
+      },
+      "end": {
+        "line": 747,
+        "character": 87
+      }
+    },
+    {
+      "name": "budget",
+      "kind": 12,
+      "containerName": "poll",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1694,
+        "character": 10
+      },
+      "end": {
+        "line": 1694,
+        "character": 36
+      }
+    },
+    {
+      "name": "buffer",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1149,
+        "character": 16
+      },
+      "end": {
+        "line": 1149,
+        "character": 43
+      }
+    },
+    {
+      "name": "buffer",
+      "kind": 12,
+      "containerName": "poll",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1714,
+        "character": 22
+      },
+      "end": {
+        "line": 1714,
+        "character": 49
+      }
+    },
+    {
+      "name": "burnTimer",
+      "kind": 7,
+      "containerName": "UsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 867,
+        "character": 2
+      },
+      "end": {
+        "line": 867,
+        "character": 63
+      }
+    },
+    {
+      "name": "busy",
+      "kind": 7,
+      "containerName": "DebugUsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1638,
+        "character": 2
+      },
+      "end": {
+        "line": 1638,
+        "character": 23
+      }
+    },
+    {
+      "name": "byChat",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 759,
+        "character": 8
+      },
+      "end": {
+        "line": 759,
+        "character": 42
+      }
+    },
+    {
+      "name": "byDay",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 758,
+        "character": 8
+      },
+      "end": {
+        "line": 758,
+        "character": 41
+      }
+    },
+    {
+      "name": "byFeature",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 760,
+        "character": 8
+      },
+      "end": {
+        "line": 760,
+        "character": 45
+      }
+    },
+    {
+      "name": "byModel",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 761,
+        "character": 8
+      },
+      "end": {
+        "line": 761,
+        "character": 71
+      }
+    },
+    {
+      "name": "bytesRead",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1150,
+        "character": 18
+      },
+      "end": {
+        "line": 1150,
+        "character": 27
+      }
+    },
+    {
+      "name": "bytesRead",
+      "kind": 12,
+      "containerName": "poll",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1715,
+        "character": 24
+      },
+      "end": {
+        "line": 1715,
+        "character": 33
+      }
+    },
+    {
+      "name": "cache",
+      "kind": 12,
+      "containerName": "readUsageRecords",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 540,
+        "character": 8
+      },
+      "end": {
+        "line": 540,
+        "character": 33
+      }
+    },
+    {
+      "name": "cache",
+      "kind": 12,
+      "containerName": "readChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 563,
+        "character": 10
+      },
+      "end": {
+        "line": 563,
+        "character": 35
+      }
+    },
+    {
+      "name": "cacheCostUsd",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 61,
+        "character": 2
+      },
+      "end": {
+        "line": 61,
+        "character": 30
+      }
+    },
+    {
+      "name": "cacheCostUsd",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 408,
+        "character": 8
+      },
+      "end": {
+        "line": 408,
+        "character": 161
+      }
+    },
+    {
+      "name": "cacheCostUsd",
+      "kind": 12,
+      "containerName": "applyCopilotUsage",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 466,
+        "character": 8
+      },
+      "end": {
+        "line": 466,
+        "character": 161
+      }
+    },
+    {
+      "name": "cacheHitRate",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 756,
+        "character": 8
+      },
+      "end": {
+        "line": 756,
+        "character": 80
+      }
+    },
+    {
+      "name": "cacheTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 55,
+        "character": 2
+      },
+      "end": {
+        "line": 55,
+        "character": 29
+      }
+    },
+    {
+      "name": "cacheTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/outputLogUsage.ts",
+      "start": {
+        "line": 8,
+        "character": 2
+      },
+      "end": {
+        "line": 8,
+        "character": 29
+      }
+    },
+    {
+      "name": "cacheTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 9,
+        "character": 2
+      },
+      "end": {
+        "line": 9,
+        "character": 29
+      }
+    },
+    {
+      "name": "cacheTokens",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 403,
+        "character": 88
+      },
+      "end": {
+        "line": 403,
+        "character": 99
+      }
+    },
+    {
+      "name": "cacheTokens",
+      "kind": 12,
+      "containerName": "applyCopilotUsage",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 458,
+        "character": 8
+      },
+      "end": {
+        "line": 458,
+        "character": 149
+      }
+    },
+    {
+      "name": "cacheWrite",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/pricing.ts",
+      "start": {
+        "line": 0,
+        "character": 66
+      },
+      "end": {
+        "line": 0,
+        "character": 86
+      }
+    },
+    {
+      "name": "cacheWriteCostUsd",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 62,
+        "character": 2
+      },
+      "end": {
+        "line": 62,
+        "character": 35
+      }
+    },
+    {
+      "name": "cacheWriteCostUsd",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 409,
+        "character": 8
+      },
+      "end": {
+        "line": 409,
+        "character": 174
+      }
+    },
+    {
+      "name": "cacheWriteCostUsd",
+      "kind": 12,
+      "containerName": "applyCopilotUsage",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 467,
+        "character": 8
+      },
+      "end": {
+        "line": 467,
+        "character": 174
+      }
+    },
+    {
+      "name": "cacheWriteCredits",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 70,
+        "character": 2
+      },
+      "end": {
+        "line": 70,
+        "character": 35
+      }
+    },
+    {
+      "name": "cacheWriteCredits",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 413,
+        "character": 8
+      },
+      "end": {
+        "line": 413,
+        "character": 87
+      }
+    },
+    {
+      "name": "cacheWriteCreditsPerMillion",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 66,
+        "character": 2
+      },
+      "end": {
+        "line": 66,
+        "character": 45
+      }
+    },
+    {
+      "name": "cacheWriteTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 56,
+        "character": 2
+      },
+      "end": {
+        "line": 56,
+        "character": 34
+      }
+    },
+    {
+      "name": "cacheWriteTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/outputLogUsage.ts",
+      "start": {
+        "line": 9,
+        "character": 2
+      },
+      "end": {
+        "line": 9,
+        "character": 34
+      }
+    },
+    {
+      "name": "cacheWriteTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 10,
+        "character": 2
+      },
+      "end": {
+        "line": 10,
+        "character": 34
+      }
+    },
+    {
+      "name": "cacheWriteTokens",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 403,
+        "character": 101
+      },
+      "end": {
+        "line": 403,
+        "character": 117
+      }
+    },
+    {
+      "name": "cacheWriteTokens",
+      "kind": 12,
+      "containerName": "applyCopilotUsage",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 459,
+        "character": 8
+      },
+      "end": {
+        "line": 461,
+        "character": 70
+      }
+    },
+    {
+      "name": "cached",
+      "kind": 12,
+      "containerName": "readAgentHostUsageSidecars",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1499,
+        "character": 10
+      },
+      "end": {
+        "line": 1499,
+        "character": 34
+      }
+    },
+    {
+      "name": "cachedInput",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/pricing.ts",
+      "start": {
+        "line": 0,
+        "character": 44
+      },
+      "end": {
+        "line": 0,
+        "character": 65
+      }
+    },
+    {
+      "name": "cachedInputCredits",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 69,
+        "character": 2
+      },
+      "end": {
+        "line": 69,
+        "character": 36
+      }
+    },
+    {
+      "name": "cachedInputCredits",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 412,
+        "character": 8
+      },
+      "end": {
+        "line": 412,
+        "character": 78
+      }
+    },
+    {
+      "name": "cachedInputCreditsPerMillion",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 65,
+        "character": 2
+      },
+      "end": {
+        "line": 65,
+        "character": 46
+      }
+    },
+    {
+      "name": "cachedMetadata",
+      "kind": 12,
+      "containerName": "readPersistedChatTitle",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 604,
+        "character": 8
+      },
+      "end": {
+        "line": 604,
+        "character": 145
+      }
+    },
+    {
+      "name": "cachedTitle",
+      "kind": 12,
+      "containerName": "readPersistedChatTitle",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 605,
+        "character": 8
+      },
+      "end": {
+        "line": 605,
+        "character": 72
+      }
+    },
+    {
+      "name": "cachedTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 10,
+        "character": 2
+      },
+      "end": {
+        "line": 10,
+        "character": 23
+      }
+    },
+    {
+      "name": "cachedTokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 22,
+        "character": 2
+      },
+      "end": {
+        "line": 22,
+        "character": 24
+      }
+    },
+    {
+      "name": "cachedTokens",
+      "kind": 12,
+      "containerName": "parseAgentHostUsageLog",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 101,
+        "character": 10
+      },
+      "end": {
+        "line": 101,
+        "character": 65
+      }
+    },
+    {
+      "name": "canEnableAgentHostLogging",
+      "kind": 12,
+      "containerName": "promptForUsageCapture",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1593,
+        "character": 8
+      },
+      "end": {
+        "line": 1593,
+        "character": 105
+      }
+    },
+    {
+      "name": "canEnableChatDebugLogging",
+      "kind": 12,
+      "containerName": "promptForUsageCapture",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1592,
+        "character": 8
+      },
+      "end": {
+        "line": 1592,
+        "character": 147
+      }
+    },
+    {
+      "name": "candidate",
+      "kind": 7,
+      "containerName": "discoverCopilotLogs",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 359,
+        "character": 46
+      },
+      "end": {
+        "line": 359,
+        "character": 64
+      }
+    },
+    {
+      "name": "candidates",
+      "kind": 12,
+      "containerName": "discoverCopilotLogs",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 351,
+        "character": 8
+      },
+      "end": {
+        "line": 351,
+        "character": 51
+      }
+    },
+    {
+      "name": "candidates",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1206,
+        "character": 14
+      },
+      "end": {
+        "line": 1206,
+        "character": 158
+      }
+    },
+    {
+      "name": "canonicalChats",
+      "kind": 12,
+      "containerName": "reconcileStoredRecords",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 979,
+        "character": 10
+      },
+      "end": {
+        "line": 979,
+        "character": 104
+      }
+    },
+    {
+      "name": "canonicalChatsByRequest()",
+      "kind": 5,
+      "containerName": "UsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 927,
+        "character": 2
+      },
+      "end": {
+        "line": 959,
+        "character": 3
+      }
+    },
+    {
+      "name": "canonicalRequestId",
+      "kind": 12,
+      "containerName": "readCopilotRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 504,
+        "character": 10
+      },
+      "end": {
+        "line": 504,
+        "character": 69
+      }
+    },
+    {
+      "name": "capturePromptPromise",
+      "kind": 12,
+      "containerName": "activate",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1886,
+        "character": 6
+      },
+      "end": {
+        "line": 1886,
+        "character": 53
+      }
+    },
+    {
+      "name": "card",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 114,
+        "character": 2
+      },
+      "end": {
+        "line": 114,
+        "character": 15
+      }
+    },
+    {
+      "name": "card",
+      "kind": 12,
+      "containerName": "loadReportTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 233,
+        "character": 17
+      },
+      "end": {
+        "line": 233,
+        "character": 21
+      }
+    },
+    {
+      "name": "card",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 782,
+        "character": 8
+      },
+      "end": {
+        "line": 782,
+        "character": 133
+      }
+    },
+    {
+      "name": "changed",
+      "kind": 12,
+      "containerName": "ensureChatMetadataTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 651,
+        "character": 6
+      },
+      "end": {
+        "line": 651,
+        "character": 21
+      }
+    },
+    {
+      "name": "changed",
+      "kind": 12,
+      "containerName": "refreshPersistedChatTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 910,
+        "character": 8
+      },
+      "end": {
+        "line": 910,
+        "character": 23
+      }
+    },
+    {
+      "name": "changed",
+      "kind": 12,
+      "containerName": "reconcileStoredRecords",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 980,
+        "character": 8
+      },
+      "end": {
+        "line": 980,
+        "character": 23
+      }
+    },
+    {
+      "name": "changed",
+      "kind": 12,
+      "containerName": "updateRecordChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1272,
+        "character": 8
+      },
+      "end": {
+        "line": 1272,
+        "character": 23
+      }
+    },
+    {
+      "name": "chat",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 763,
+        "character": 13
+      },
+      "end": {
+        "line": 763,
+        "character": 17
+      }
+    },
+    {
+      "name": "chat",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 772,
+        "character": 10
+      },
+      "end": {
+        "line": 772,
+        "character": 145
+      }
+    },
+    {
+      "name": "chat",
+      "kind": 12,
+      "containerName": "refreshPersistedChatTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 914,
+        "character": 12
+      },
+      "end": {
+        "line": 914,
+        "character": 100
+      }
+    },
+    {
+      "name": "chat",
+      "kind": 12,
+      "containerName": "refreshPersistedChatTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 920,
+        "character": 24
+      },
+      "end": {
+        "line": 920,
+        "character": 28
+      }
+    },
+    {
+      "name": "chat",
+      "kind": 12,
+      "containerName": "canonicalChatsByRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 932,
+        "character": 12
+      },
+      "end": {
+        "line": 932,
+        "character": 49
+      }
+    },
+    {
+      "name": "chat",
+      "kind": 12,
+      "containerName": "canonicalChatsByRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 955,
+        "character": 12
+      },
+      "end": {
+        "line": 955,
+        "character": 42
+      }
+    },
+    {
+      "name": "chatDate",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 817,
+        "character": 10
+      },
+      "end": {
+        "line": 817,
+        "character": 86
+      }
+    },
+    {
+      "name": "chatDebugLoggingEnabled",
+      "kind": 12,
+      "containerName": "promptForUsageCapture",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1594,
+        "character": 8
+      },
+      "end": {
+        "line": 1594,
+        "character": 103
+      }
+    },
+    {
+      "name": "chatGroup",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 120,
+        "character": 2
+      },
+      "end": {
+        "line": 120,
+        "character": 20
+      }
+    },
+    {
+      "name": "chatGroup",
+      "kind": 12,
+      "containerName": "loadReportTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 233,
+        "character": 79
+      },
+      "end": {
+        "line": 233,
+        "character": 88
+      }
+    },
+    {
+      "name": "chatGroups",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 813,
+        "character": 8
+      },
+      "end": {
+        "line": 839,
+        "character": 13
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/chatMetadata.ts",
+      "start": {
+        "line": 7,
+        "character": 37
+      },
+      "end": {
+        "line": 7,
+        "character": 52
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/conversationContext.ts",
+      "start": {
+        "line": 0,
+        "character": 33
+      },
+      "end": {
+        "line": 0,
+        "character": 48
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 41,
+        "character": 2
+      },
+      "end": {
+        "line": 41,
+        "character": 18
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 91,
+        "character": 2
+      },
+      "end": {
+        "line": 91,
+        "character": 17
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 110,
+        "character": 46
+      },
+      "end": {
+        "line": 110,
+        "character": 62
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 130,
+        "character": 23
+      },
+      "end": {
+        "line": 130,
+        "character": 38
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "persistedChatForTurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 615,
+        "character": 93
+      },
+      "end": {
+        "line": 615,
+        "character": 108
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "persistedChatsByTurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 620,
+        "character": 89
+      },
+      "end": {
+        "line": 620,
+        "character": 104
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "canonicalChatsByRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 927,
+        "character": 96
+      },
+      "end": {
+        "line": 927,
+        "character": 111
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "canonicalChatsByRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 928,
+        "character": 36
+      },
+      "end": {
+        "line": 928,
+        "character": 51
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 13,
+        "character": 2
+      },
+      "end": {
+        "line": 13,
+        "character": 18
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 12,
+      "containerName": "persistedChatSessionFromJsonl",
+      "filePath": "./src/chatMetadata.ts",
+      "start": {
+        "line": 37,
+        "character": 6
+      },
+      "end": {
+        "line": 37,
+        "character": 32
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 12,
+      "containerName": "resolveConversationContext",
+      "filePath": "./src/conversationContext.ts",
+      "start": {
+        "line": 8,
+        "character": 8
+      },
+      "end": {
+        "line": 8,
+        "character": 113
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 12,
+      "containerName": "readCopilotRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 509,
+        "character": 10
+      },
+      "end": {
+        "line": 509,
+        "character": 80
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 12,
+      "containerName": "refreshPersistedChatTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 920,
+        "character": 16
+      },
+      "end": {
+        "line": 920,
+        "character": 22
+      }
+    },
+    {
+      "name": "chatId",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1218,
+        "character": 12
+      },
+      "end": {
+        "line": 1218,
+        "character": 42
+      }
+    },
+    {
+      "name": "chatMetadataCache",
+      "kind": 12,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 134,
+        "character": 4
+      },
+      "end": {
+        "line": 134,
+        "character": 60
+      }
+    },
+    {
+      "name": "chatRow",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 122,
+        "character": 2
+      },
+      "end": {
+        "line": 122,
+        "character": 18
+      }
+    },
+    {
+      "name": "chatRow",
+      "kind": 12,
+      "containerName": "loadReportTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 233,
+        "character": 101
+      },
+      "end": {
+        "line": 233,
+        "character": 108
+      }
+    },
+    {
+      "name": "chatSessionsDirectory",
+      "kind": 12,
+      "containerName": "persistedChatsByTurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 621,
+        "character": 8
+      },
+      "end": {
+        "line": 621,
+        "character": 79
+      }
+    },
+    {
+      "name": "chatTable",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 123,
+        "character": 2
+      },
+      "end": {
+        "line": 123,
+        "character": 20
+      }
+    },
+    {
+      "name": "chatTable",
+      "kind": 12,
+      "containerName": "loadReportTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 233,
+        "character": 110
+      },
+      "end": {
+        "line": 233,
+        "character": 119
+      }
+    },
+    {
+      "name": "chatTimestamps",
+      "kind": 12,
+      "containerName": "refreshPersistedChatTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 911,
+        "character": 10
+      },
+      "end": {
+        "line": 911,
+        "character": 113
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 7,
+      "containerName": "readChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 567,
+        "character": 63
+      },
+      "end": {
+        "line": 567,
+        "character": 78
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 7,
+      "containerName": "ensureChatMetadataTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 649,
+        "character": 37
+      },
+      "end": {
+        "line": 649,
+        "character": 52
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 12,
+      "containerName": "readChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 569,
+        "character": 10
+      },
+      "end": {
+        "line": 573,
+        "character": 6
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 12,
+      "containerName": "ensureChatMetadataTitles",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 652,
+        "character": 8
+      },
+      "end": {
+        "line": 658,
+        "character": 4
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 12,
+      "containerName": "updateChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 671,
+        "character": 8
+      },
+      "end": {
+        "line": 671,
+        "character": 40
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 806,
+        "character": 8
+      },
+      "end": {
+        "line": 806,
+        "character": 49
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 12,
+      "containerName": "canonicalChatsByRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 928,
+        "character": 10
+      },
+      "end": {
+        "line": 928,
+        "character": 160
+      }
+    },
+    {
+      "name": "chats",
+      "kind": 12,
+      "containerName": "updateChatTitle",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1305,
+        "character": 10
+      },
+      "end": {
+        "line": 1305,
+        "character": 42
+      }
+    },
+    {
+      "name": "chatsByTurn",
+      "kind": 12,
+      "containerName": "persistedChatForTurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 616,
+        "character": 8
+      },
+      "end": {
+        "line": 616,
+        "character": 70
+      }
+    },
+    {
+      "name": "chatsByTurn",
+      "kind": 12,
+      "containerName": "persistedChatsByTurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 631,
+        "character": 10
+      },
+      "end": {
+        "line": 631,
+        "character": 56
+      }
+    },
+    {
+      "name": "chatsByTurn",
+      "kind": 12,
+      "containerName": "canonicalChatsByRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 929,
+        "character": 10
+      },
+      "end": {
+        "line": 929,
+        "character": 79
+      }
+    },
+    {
+      "name": "chatsByTurn",
+      "kind": 12,
+      "containerName": "readAgentHostUsageSidecars",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1478,
+        "character": 8
+      },
+      "end": {
+        "line": 1478,
+        "character": 70
+      }
+    },
+    {
+      "name": "choice",
+      "kind": 12,
+      "containerName": "promptForUsageCapture",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1601,
+        "character": 8
+      },
+      "end": {
+        "line": 1606,
+        "character": 3
+      }
+    },
+    {
+      "name": "chunkBytes",
+      "kind": 7,
+      "containerName": "DebugUsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1641,
+        "character": 2
+      },
+      "end": {
+        "line": 1641,
+        "character": 44
+      }
+    },
+    {
+      "name": "classifyRequestType()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 255,
+        "character": 0
+      },
+      "end": {
+        "line": 262,
+        "character": 1
+      }
+    },
+    {
+      "name": "collector",
+      "kind": 12,
+      "containerName": "activate",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1844,
+        "character": 6
+      },
+      "end": {
+        "line": 1844,
+        "character": 94
+      }
+    },
+    {
+      "name": "collectorLifetime",
+      "kind": 12,
+      "containerName": "activate",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1845,
+        "character": 8
+      },
+      "end": {
+        "line": 1845,
+        "character": 85
+      }
+    },
+    {
+      "name": "collectorSource",
+      "kind": 12,
+      "containerName": "activate",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1842,
+        "character": 6
+      },
+      "end": {
+        "line": 1842,
+        "character": 53
+      }
+    },
+    {
+      "name": "combined",
+      "kind": 12,
+      "containerName": "takeCompleteLines",
+      "filePath": "./src/incrementalLines.ts",
+      "start": {
+        "line": 3,
+        "character": 8
+      },
+      "end": {
+        "line": 3,
+        "character": 58
+      }
+    },
+    {
+      "name": "complete",
+      "kind": 12,
+      "containerName": "takeCompleteLines",
+      "filePath": "./src/incrementalLines.ts",
+      "start": {
+        "line": 10,
+        "character": 8
+      },
+      "end": {
+        "line": 10,
+        "character": 69
+      }
+    },
+    {
+      "name": "completeness()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 43,
+        "character": 0
+      },
+      "end": {
+        "line": 52,
+        "character": 1
+      }
+    },
+    {
+      "name": "completion_tokens",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 103,
+        "character": 2
+      },
+      "end": {
+        "line": 103,
+        "character": 29
+      }
+    },
+    {
+      "name": "completion_tokens_details",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 106,
+        "character": 2
+      },
+      "end": {
+        "line": 106,
+        "character": 134
+      }
+    },
+    {
+      "name": "configuration",
+      "kind": 12,
+      "containerName": "formatMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 289,
+        "character": 8
+      },
+      "end": {
+        "line": 289,
+        "character": 79
+      }
+    },
+    {
+      "name": "configuration",
+      "kind": 12,
+      "containerName": "formatRecentMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 297,
+        "character": 8
+      },
+      "end": {
+        "line": 297,
+        "character": 79
+      }
+    },
+    {
+      "name": "configuration",
+      "kind": 12,
+      "containerName": "formatBurnMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 304,
+        "character": 8
+      },
+      "end": {
+        "line": 304,
+        "character": 79
+      }
+    },
+    {
+      "name": "configuration",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 720,
+        "character": 10
+      },
+      "end": {
+        "line": 720,
+        "character": 81
+      }
+    },
+    {
+      "name": "configuration",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1347,
+        "character": 10
+      },
+      "end": {
+        "line": 1347,
+        "character": 81
+      }
+    },
+    {
+      "name": "configuration",
+      "kind": 12,
+      "containerName": "migrateLegacyChatDebugFileLoggingSetting",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1579,
+        "character": 8
+      },
+      "end": {
+        "line": 1579,
+        "character": 59
+      }
+    },
+    {
+      "name": "configuration",
+      "kind": 12,
+      "containerName": "promptForUsageCapture",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1590,
+        "character": 8
+      },
+      "end": {
+        "line": 1590,
+        "character": 59
+      }
+    },
+    {
+      "name": "configured",
+      "kind": 12,
+      "containerName": "configuredPricing",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 328,
+        "character": 8
+      },
+      "end": {
+        "line": 328,
+        "character": 127
+      }
+    },
+    {
+      "name": "configured",
+      "kind": 12,
+      "containerName": "logPaths",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1074,
+        "character": 10
+      },
+      "end": {
+        "line": 1074,
+        "character": 112
+      }
+    },
+    {
+      "name": "configured",
+      "kind": 12,
+      "containerName": "configuredUsageSource",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1574,
+        "character": 8
+      },
+      "end": {
+        "line": 1574,
+        "character": 109
+      }
+    },
+    {
+      "name": "configuredPricing()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 327,
+        "character": 0
+      },
+      "end": {
+        "line": 330,
+        "character": 1
+      }
+    },
+    {
+      "name": "configuredUsageSource()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1573,
+        "character": 0
+      },
+      "end": {
+        "line": 1576,
+        "character": 1
+      }
+    },
+    {
+      "name": "content",
+      "kind": 12,
+      "containerName": "readChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 566,
+        "character": 10
+      },
+      "end": {
+        "line": 566,
+        "character": 55
+      }
+    },
+    {
+      "name": "content",
+      "kind": 12,
+      "containerName": "persistedChatsByTurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 633,
+        "character": 12
+      },
+      "end": {
+        "line": 633,
+        "character": 93
+      }
+    },
+    {
+      "name": "content",
+      "kind": 12,
+      "containerName": "canonicalChatsByRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 942,
+        "character": 14
+      },
+      "end": {
+        "line": 942,
+        "character": 60
+      }
+    },
+    {
+      "name": "content",
+      "kind": 12,
+      "containerName": "reconcileStoredRecords",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 965,
+        "character": 8
+      },
+      "end": {
+        "line": 965,
+        "character": 23
+      }
+    },
+    {
+      "name": "content",
+      "kind": 12,
+      "containerName": "updateRecordChatMetadata",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1266,
+        "character": 8
+      },
+      "end": {
+        "line": 1266,
+        "character": 23
+      }
+    },
+    {
+      "name": "context",
+      "kind": 7,
+      "containerName": "UsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 877,
+        "character": 14
+      },
+      "end": {
+        "line": 877,
+        "character": 63
+      }
+    },
+    {
+      "name": "context",
+      "kind": 7,
+      "containerName": "DebugUsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1643,
+        "character": 14
+      },
+      "end": {
+        "line": 1643,
+        "character": 63
+      }
+    },
+    {
+      "name": "conversationId",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1170,
+        "character": 12
+      },
+      "end": {
+        "line": 1170,
+        "character": 57
+      }
+    },
+    {
+      "name": "conversationIdFromLine()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 364,
+        "character": 0
+      },
+      "end": {
+        "line": 367,
+        "character": 1
+      }
+    },
+    {
+      "name": "conversationTitle",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 43,
+        "character": 2
+      },
+      "end": {
+        "line": 43,
+        "character": 29
+      }
+    },
+    {
+      "name": "conversationTitle",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 110,
+        "character": 80
+      },
+      "end": {
+        "line": 110,
+        "character": 107
+      }
+    },
+    {
+      "name": "conversationTitle",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 14,
+        "character": 2
+      },
+      "end": {
+        "line": 14,
+        "character": 29
+      }
+    },
+    {
+      "name": "conversationTitle",
+      "kind": 12,
+      "containerName": "readCopilotRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 511,
+        "character": 10
+      },
+      "end": {
+        "line": 511,
+        "character": 63
+      }
+    },
+    {
+      "name": "conversationTitle",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 815,
+        "character": 10
+      },
+      "end": {
+        "line": 815,
+        "character": 121
+      }
+    },
+    {
+      "name": "conversationTitle",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1221,
+        "character": 12
+      },
+      "end": {
+        "line": 1221,
+        "character": 52
+      }
+    },
+    {
+      "name": "conversationTitleFromValue()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 170,
+        "character": 0
+      },
+      "end": {
+        "line": 181,
+        "character": 1
+      }
+    },
+    {
+      "name": "conversationTitleSource",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 44,
+        "character": 2
+      },
+      "end": {
+        "line": 44,
+        "character": 59
+      }
+    },
+    {
+      "name": "conversationTitles",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 762,
+        "character": 8
+      },
+      "end": {
+        "line": 762,
+        "character": 54
+      }
+    },
+    {
+      "name": "conversationTurn",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1175,
+        "character": 14
+      },
+      "end": {
+        "line": 1175,
+        "character": 67
+      }
+    },
+    {
+      "name": "conversationTurn",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1193,
+        "character": 16
+      },
+      "end": {
+        "line": 1193,
+        "character": 70
+      }
+    },
+    {
+      "name": "conversationTurns",
+      "kind": 7,
+      "containerName": "UsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 861,
+        "character": 2
+      },
+      "end": {
+        "line": 861,
+        "character": 93
+      }
+    },
+    {
+      "name": "conversionRate",
+      "kind": 12,
+      "containerName": "formatMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 291,
+        "character": 8
+      },
+      "end": {
+        "line": 291,
+        "character": 79
+      }
+    },
+    {
+      "name": "conversionRate",
+      "kind": 12,
+      "containerName": "formatRecentMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 299,
+        "character": 8
+      },
+      "end": {
+        "line": 299,
+        "character": 79
+      }
+    },
+    {
+      "name": "conversionRate",
+      "kind": 12,
+      "containerName": "formatBurnMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 306,
+        "character": 8
+      },
+      "end": {
+        "line": 306,
+        "character": 79
+      }
+    },
+    {
+      "name": "copilotChatDebugFileLoggingSetting",
+      "kind": 12,
+      "containerName": "",
+      "filePath": "./src/usageSource.ts",
+      "start": {
+        "line": 3,
+        "character": 13
+      },
+      "end": {
+        "line": 3,
+        "character": 105
+      }
+    },
+    {
+      "name": "copilotChatDebugLogFiles()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1540,
+        "character": 0
+      },
+      "end": {
+        "line": 1564,
+        "character": 1
+      }
+    },
+    {
+      "name": "copilotChatDebugLogRoot()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1566,
+        "character": 0
+      },
+      "end": {
+        "line": 1571,
+        "character": 1
+      }
+    },
+    {
+      "name": "copilotHome",
+      "kind": 12,
+      "containerName": "readPersistedChatTitle",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 598,
+        "character": 8
+      },
+      "end": {
+        "line": 598,
+        "character": 82
+      }
+    },
+    {
+      "name": "copilotUsage",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 73,
+        "character": 2
+      },
+      "end": {
+        "line": 73,
+        "character": 36
+      }
+    },
+    {
+      "name": "copilot_usage",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 107,
+        "character": 2
+      },
+      "end": {
+        "line": 107,
+        "character": 89
+      }
+    },
+    {
+      "name": "cost",
+      "kind": 7,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 761,
+        "character": 36
+      },
+      "end": {
+        "line": 761,
+        "character": 49
+      }
+    },
+    {
+      "name": "costKind",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 76,
+        "character": 2
+      },
+      "end": {
+        "line": 76,
+        "character": 40
+      }
+    },
+    {
+      "name": "costUsd",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 63,
+        "character": 2
+      },
+      "end": {
+        "line": 63,
+        "character": 25
+      }
+    },
+    {
+      "name": "costUsd",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 12,
+        "character": 2
+      },
+      "end": {
+        "line": 12,
+        "character": 25
+      }
+    },
+    {
+      "name": "costUsd",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 410,
+        "character": 8
+      },
+      "end": {
+        "line": 410,
+        "character": 152
+      }
+    },
+    {
+      "name": "costUsd",
+      "kind": 12,
+      "containerName": "applyCopilotUsage",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 472,
+        "character": 8
+      },
+      "end": {
+        "line": 472,
+        "character": 82
+      }
+    },
+    {
+      "name": "cost_per_batch",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 109,
+        "character": 54
+      },
+      "end": {
+        "line": 109,
+        "character": 78
+      }
+    },
+    {
+      "name": "count",
+      "kind": 7,
+      "containerName": "toolUsageFromValue",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 204,
+        "character": 102
+      },
+      "end": {
+        "line": 204,
+        "character": 115
+      }
+    },
+    {
+      "name": "count",
+      "kind": 12,
+      "containerName": "toolUsageFromValue",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 206,
+        "character": 6
+      },
+      "end": {
+        "line": 206,
+        "character": 15
+      }
+    },
+    {
+      "name": "createNonce()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 854,
+        "character": 0
+      },
+      "end": {
+        "line": 856,
+        "character": 1
+      }
+    },
+    {
+      "name": "createPricingLookup()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/pricing.ts",
+      "start": {
+        "line": 15,
+        "character": 0
+      },
+      "end": {
+        "line": 50,
+        "character": 1
+      }
+    },
+    {
+      "name": "createUsageCollector()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1808,
+        "character": 0
+      },
+      "end": {
+        "line": 1818,
+        "character": 1
+      }
+    },
+    {
+      "name": "crossed",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 726,
+        "character": 14
+      },
+      "end": {
+        "line": 726,
+        "character": 75
+      }
+    },
+    {
+      "name": "crossed",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1353,
+        "character": 14
+      },
+      "end": {
+        "line": 1353,
+        "character": 75
+      }
+    },
+    {
+      "name": "currency",
+      "kind": 12,
+      "containerName": "formatMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 290,
+        "character": 8
+      },
+      "end": {
+        "line": 290,
+        "character": 63
+      }
+    },
+    {
+      "name": "currency",
+      "kind": 12,
+      "containerName": "formatRecentMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 298,
+        "character": 8
+      },
+      "end": {
+        "line": 298,
+        "character": 63
+      }
+    },
+    {
+      "name": "currency",
+      "kind": 12,
+      "containerName": "formatBurnMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 305,
+        "character": 8
+      },
+      "end": {
+        "line": 305,
+        "character": 63
+      }
+    },
+    {
+      "name": "current",
+      "kind": 12,
+      "containerName": "createPricingLookup",
+      "filePath": "./src/pricing.ts",
+      "start": {
+        "line": 19,
+        "character": 10
+      },
+      "end": {
+        "line": 19,
+        "character": 40
+      }
+    },
+    {
+      "name": "customTitle",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/chatMetadata.ts",
+      "start": {
+        "line": 1,
+        "character": 2
+      },
+      "end": {
+        "line": 1,
+        "character": 24
+      }
+    },
+    {
+      "name": "customTitle",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 111,
+        "character": 32
+      },
+      "end": {
+        "line": 111,
+        "character": 53
+      }
+    },
+    {
+      "name": "dailyBar",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 115,
+        "character": 2
+      },
+      "end": {
+        "line": 115,
+        "character": 19
+      }
+    },
+    {
+      "name": "dailyBar",
+      "kind": 12,
+      "containerName": "loadReportTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 233,
+        "character": 23
+      },
+      "end": {
+        "line": 233,
+        "character": 31
+      }
+    },
+    {
+      "name": "dailyChart",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 116,
+        "character": 2
+      },
+      "end": {
+        "line": 116,
+        "character": 21
+      }
+    },
+    {
+      "name": "dailyChart",
+      "kind": 12,
+      "containerName": "loadReportTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 233,
+        "character": 33
+      },
+      "end": {
+        "line": 233,
+        "character": 43
+      }
+    },
+    {
+      "name": "dailyEntries",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 789,
+        "character": 8
+      },
+      "end": {
+        "line": 789,
+        "character": 107
+      }
+    },
+    {
+      "name": "dailyLabelCount",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 790,
+        "character": 8
+      },
+      "end": {
+        "line": 790,
+        "character": 58
+      }
+    },
+    {
+      "name": "dailyLabelIndexes",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 791,
+        "character": 8
+      },
+      "end": {
+        "line": 792,
+        "character": 91
+      }
+    },
+    {
+      "name": "day",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 770,
+        "character": 10
+      },
+      "end": {
+        "line": 770,
+        "character": 58
+      }
+    },
+    {
+      "name": "deactivate()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1902,
+        "character": 0
+      },
+      "end": {
+        "line": 1902,
+        "character": 37
+      }
+    },
+    {
+      "name": "debugLogRoot",
+      "kind": 12,
+      "containerName": "poll",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1674,
+        "character": 12
+      },
+      "end": {
+        "line": 1674,
+        "character": 64
+      }
+    },
+    {
+      "name": "debugLogsCollector",
+      "kind": 7,
+      "containerName": "AutoUsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1772,
+        "character": 2
+      },
+      "end": {
+        "line": 1772,
+        "character": 59
+      }
+    },
+    {
+      "name": "debugUsageFileName",
+      "kind": 12,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 21,
+        "character": 6
+      },
+      "end": {
+        "line": 21,
+        "character": 46
+      }
+    },
+    {
+      "name": "deduplicateUsageRecords()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 54,
+        "character": 0
+      },
+      "end": {
+        "line": 84,
+        "character": 1
+      }
+    },
+    {
+      "name": "directory",
+      "kind": 12,
+      "containerName": "poll",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1676,
+        "character": 17
+      },
+      "end": {
+        "line": 1676,
+        "character": 26
+      }
+    },
+    {
+      "name": "discoverCopilotLogs()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 350,
+        "character": 0
+      },
+      "end": {
+        "line": 362,
+        "character": 1
+      }
+    },
+    {
+      "name": "displayNumber",
+      "kind": 12,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 280,
+        "character": 6
+      },
+      "end": {
+        "line": 280,
+        "character": 108
+      }
+    },
+    {
+      "name": "displayValue",
+      "kind": 12,
+      "containerName": "formatBurnMoney",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 307,
+        "character": 8
+      },
+      "end": {
+        "line": 307,
+        "character": 58
+      }
+    },
+    {
+      "name": "dispose()",
+      "kind": 5,
+      "containerName": "UsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1369,
+        "character": 2
+      },
+      "end": {
+        "line": 1374,
+        "character": 3
+      }
+    },
+    {
+      "name": "dispose()",
+      "kind": 5,
+      "containerName": "DebugUsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1764,
+        "character": 2
+      },
+      "end": {
+        "line": 1767,
+        "character": 3
+      }
+    },
+    {
+      "name": "dispose()",
+      "kind": 5,
+      "containerName": "AutoUsageCollector",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1800,
+        "character": 2
+      },
+      "end": {
+        "line": 1805,
+        "character": 3
+      }
+    },
+    {
+      "name": "document",
+      "kind": 12,
+      "containerName": "readCopilotRequest",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 505,
+        "character": 10
+      },
+      "end": {
+        "line": 505,
+        "character": 114
+      }
+    },
+    {
+      "name": "duplicateIndex",
+      "kind": 12,
+      "containerName": "deduplicateUsageRecords",
+      "filePath": "./src/usageDeduplication.ts",
+      "start": {
+        "line": 65,
+        "character": 8
+      },
+      "end": {
+        "line": 65,
+        "character": 42
+      }
+    },
+    {
+      "name": "durationMs",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/copilotDebugUsage.ts",
+      "start": {
+        "line": 24,
+        "character": 2
+      },
+      "end": {
+        "line": 24,
+        "character": 22
+      }
+    },
+    {
+      "name": "durationMs",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 51,
+        "character": 2
+      },
+      "end": {
+        "line": 51,
+        "character": 21
+      }
+    },
+    {
+      "name": "durationMs",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/outputLogUsage.ts",
+      "start": {
+        "line": 5,
+        "character": 2
+      },
+      "end": {
+        "line": 5,
+        "character": 21
+      }
+    },
+    {
+      "name": "durationMs",
+      "kind": 12,
+      "containerName": "parseLine",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 403,
+        "character": 48
+      },
+      "end": {
+        "line": 403,
+        "character": 58
+      }
+    },
+    {
+      "name": "durationMs",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 732,
+        "character": 10
+      },
+      "end": {
+        "line": 732,
+        "character": 109
+      }
+    },
+    {
+      "name": "durationMs",
+      "kind": 12,
+      "containerName": "showMoneyBurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1359,
+        "character": 10
+      },
+      "end": {
+        "line": 1359,
+        "character": 109
+      }
+    },
+    {
+      "name": "empty",
+      "kind": 7,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 125,
+        "character": 2
+      },
+      "end": {
+        "line": 125,
+        "character": 16
+      }
+    },
+    {
+      "name": "empty",
+      "kind": 12,
+      "containerName": "loadReportTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 233,
+        "character": 136
+      },
+      "end": {
+        "line": 233,
+        "character": 141
+      }
+    },
+    {
+      "name": "empty",
+      "kind": 12,
+      "containerName": "renderReportFromTemplates",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 781,
+        "character": 8
+      },
+      "end": {
+        "line": 781,
+        "character": 100
+      }
+    },
+    {
+      "name": "end",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1146,
+        "character": 14
+      },
+      "end": {
+        "line": 1146,
+        "character": 76
+      }
+    },
+    {
+      "name": "end",
+      "kind": 12,
+      "containerName": "poll",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1707,
+        "character": 14
+      },
+      "end": {
+        "line": 1707,
+        "character": 55
+      }
+    },
+    {
+      "name": "enrichedRecord",
+      "kind": 12,
+      "containerName": "pollLog",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1223,
+        "character": 12
+      },
+      "end": {
+        "line": 1223,
+        "character": 392
+      }
+    },
+    {
+      "name": "ensureChatMetadataTitles()",
+      "kind": 11,
+      "containerName": "",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 645,
+        "character": 0
+      },
+      "end": {
+        "line": 664,
+        "character": 1
+      }
+    },
+    {
+      "name": "entries",
+      "kind": 12,
+      "containerName": "lastText",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 195,
+        "character": 10
+      },
+      "end": {
+        "line": 195,
+        "character": 40
+      }
+    },
+    {
+      "name": "entries",
+      "kind": 12,
+      "containerName": "findCopilotLogs",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 334,
+        "character": 6
+      },
+      "end": {
+        "line": 334,
+        "character": 41
+      }
+    },
+    {
+      "name": "entries",
+      "kind": 12,
+      "containerName": "persistedChatsByTurn",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 623,
+        "character": 10
+      },
+      "end": {
+        "line": 623,
+        "character": 84
+      }
+    },
+    {
+      "name": "entries",
+      "kind": 12,
+      "containerName": "readAgentHostUsageSidecars",
+      "filePath": "./src/extension.ts",
+      "start": {
+        "line": 1482,
+        "character": 6
+      },
+      "end": {
+        "line": 1482,
+        "character": 41
+      }
+    }
+  ],
+  "activeFileDiagnostics": [],
+  "debugConsoleOutput": "",
+  "terminalBuffer": "> npm run fetch-pricing && tsc -p ./tsconfig.json\r\n\r\n\r\n> copilot-cost-counter@0.2.95 fetch-pricing\r\n> node ./scripts/fetch-pricing.mjs\r\n\r\nGenerated 62 pricing rows from https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing\r\n✔ backs up the current codebase before packaging without generated directories (539.119375ms)\r\n✔ prefers a persisted custom title from a current .json session (0.546625ms)\r\n✔ resolves the title from a current VS Code session fixture (5.919583ms)\r\n✔ resolves a custom title from a VS Code JSONL journal payload (0.3865ms)\r\n✔ collects a later turn from a VS Code requests patch event (1.719875ms)\r\n✔ does not use the first user message as a generated chat title (0.095791ms)\r\n✔ uses the saved first user message as a bounded fallback label (0.090458ms)\r\n✔ does not use a nested request message as a generated chat title (0.059291ms)\r\n✔ does not treat a legacy session prompt as a generated title (2.994458ms)\r\n✔ uses the first user message when a session has no generated title (1.8235ms)\r\n✔ ignores blank and non-string title values (0.150458ms)\r\n✔ identifies persisted title sources (0.062708ms)\r\n✔ rejects Copilot policy responses as generated titles (0.098042ms)\r\n✔ uses the active log conversation when a ccreq record has no IDs (2.945542ms)\r\n✔ associates each ccreq-shaped event with the latest conversation marker (4.102834ms)\r\n✔ prefers IDs from the request over parsed, websocket, and active values (0.111416ms)\r\n✔ does not create incomplete metadata when either ID is missing (0.083875ms)\r\n✔ parses Agent Host model calls and converts cumulative turn AIU to per-call amounts (3.665209ms)\r\n✔ skips malformed and empty Agent Host usage records (0.301625ms)\r\n✔ filters global Agent Host sidecars to sessions and turns persisted in the current workspace (0.481917ms)\r\n✔ keeps Agent Host records for a known chat while its turn journal is still pending (0.611708ms)\r\n✔ extracts measured token, cache, model, and AI-unit fields (0.404666ms)\r\n✔ accepts an explicit zero AI-unit amount without treating it as missing (0.701125ms)\r\n✔ uses a stable fallback key when the span omits its id (0.131458ms)\r\n✔ rejects malformed, non-chat, and incomplete events (1.483917ms)\r\n✔ writes a commit-backed release summary and records its Git anchor (2062.003083ms)\r\n✔ recovers the commit that introduced a release created before metadata (2387.35025ms)\r\n✔ retains incomplete lines and UTF-8 bytes across chunks (0.874792ms)\r\n✔ does not emit a trailing partial record (0.645375ms)\r\n✔ extracts successful request metadata and token aliases (1.217125ms)\r\n✔ returns null for token fields omitted by the source log (0.843917ms)\r\n✔ ignores malformed and unsuccessful request records (0.062459ms)\r\n✔ package input exists: dist/extension.js (7.823292ms)\r\n✔ package input exists: dist/chatMetadata.js (0.411625ms)\r\n✔ package input exists: dist/conversationContext.js (1.024833ms)\r\n✔ package input exists: templates/report.html (1.5155ms)\r\n✔ package input exists: templates/chat-group.html (1.099541ms)\r\n✔ package input exists: test_data/copilot-log-sequence.jsonl (0.922416ms)\r\n✔ package input exists: test_data/chat-session-current.json (0.487458ms)\r\n✔ package input exists: test_data/chat-session-legacy.jsonl (0.239292ms)\r\n✔ uses the latest default price through the context threshold (1.550875ms)\r\n✔ uses long-context rates above the context threshold (0.26275ms)\r\n✔ overrides win while unspecified cache rates inherit the selected tier (1.086625ms)\r\n✔ unknown models remain without a guessed rate (0.202667ms)\r\n✔ uses the available long-context row when no default row exists (0.201125ms)\r\n✔ synthetic corpus usage rows are valid request records (6.545375ms)\r\n✔ synthetic corpus session journals expose stable client sessions and safe labels (6.667125ms)\r\n✔ synthetic corpus retains matching transcript, debug, and durable metadata sources (1.401834ms)\r\n✔ synthetic corpus includes production-shaped asynchronous correlation events (2.393583ms)\r\n✔ synthetic corpus has no personal input text or local paths (3.081875ms)\r\n✔ deduplicates cross-source records for the same turn and model call (2.756083ms)\r\n✔ does not deduplicate different turns, models, token usage, or same-source requests (10.819875ms)\r\n✔ does not deduplicate matching calls outside the cross-source timestamp window (0.374167ms)\r\n✔ deduplicates Agent Host copies by exact request ID (0.245333ms)\r\n✔ formats cache hit rate from cached and prompt tokens (1.139292ms)\r\n✔ reports unavailable when prompt tokens are absent (1.099208ms)\r\n✔ bounds malformed cache totals to the valid percentage range (0.090833ms)\r\n✔ auto reads both available sources instead of selecting one from a setting flag (0.878542ms)\r\n✔ explicit source preferences are respected (0.523ms)\r\n✔ uses Copilot Chat’s supported debug file-logging setting key (0.100917ms)\r\nℹ tests 60\r\nℹ suites 0\r\nℹ pass 60\r\nℹ fail 0\r\nℹ cancelled 0\r\nℹ skipped 0\r\nℹ todo 0\r\nℹ duration_ms 4573.472959\r\n^[[A^[[B INFO  Files included in the VSIX:\r\ncopilot-cost-counter-0.2.95.vsix\r\n├─ [Content_Types].xml \r\n├─ extension.vsixmanifest \r\n└─ extension/\r\n   ├─ LICENSE.txt [1.06 KB]\r\n   ├─ changelog.md [12.64 KB]\r\n   ├─ package.json [7.6 KB]\r\n   ├─ readme.md [18.05 KB]\r\n   ├─ dist/ (21 files) [235.44 KB]\r\n   ├─ media/ (6 files) [223.87 KB]\r\n   └─ templates/ (13 files) [23 KB]\r\n\r\n=> Run vsce ls --tree to see all included files.\r\n\r\n DONE  Packaged: packages/copilot-cost-counter-0.2.95.vsix (46 files, 269.78 KB)\r\n WARNING  The latest version of @vscode/vsce is 4.0.0 and you have 3.9.2.\r\nmikaelkarkkonen@Mac-Mini-MK ~/Documents/Koodi_ja_softa/CasvuAi/vscode_addons/2026_Vscode_copilot_cost_counter\r\n % \r\n\r\rmikaelkarkkonen@Mac-Mini-MK ~/Documents/Koodi_ja_softa/CasvuAi/vscode_addons/2026_Vscode_copilot_cost_counter\r\n\r % ",
+  "terminalSelection": "",
+  "terminalShellType": "zsh",
+  "repoContexts": [
+    {
+      "_repo": {
+        "rootUri": {
+          "$mid": 1,
+          "path": "/Users/mikaelkarkkonen/Documents/Koodi_ja_softa/CasvuAi/vscode_addons/2026_Vscode_copilot_cost_counter",
+          "scheme": "file"
+        },
+        "inputBox": {},
+        "kind": "repository",
+        "state": {},
+        "ui": {},
+        "isUsingVirtualFileSystem": false
+      },
+      "rootUri": {
+        "$mid": 1,
+        "path": "/Users/mikaelkarkkonen/Documents/Koodi_ja_softa/CasvuAi/vscode_addons/2026_Vscode_copilot_cost_counter",
+        "scheme": "file"
+      },
+      "kind": "repository",
+      "isUsingVirtualFileSystem": false,
+      "headBranchName": "main",
+      "headCommitHash": "0ec76c99fe8c752a12c69fa87ab4a7488e2a4ea0",
+      "headIncomingChanges": 0,
+      "headOutgoingChanges": 0,
+      "upstreamBranchName": "main",
+      "upstreamRemote": "origin",
+      "isRebasing": true,
+      "remotes": [
+        "origin"
+      ],
+      "remoteFetchUrls": [
+        "https://github.com/Aavato-c/copilot_cost_counter_extension.git"
+      ],
+      "worktrees": [
+        {
+          "name": "2026_Vscode_copilot_cost_counter",
+          "path": "/Users/mikaelkarkkonen/Documents/Koodi_ja_softa/CasvuAi/vscode_addons/2026_Vscode_copilot_cost_counter",
+          "ref": "refs/heads/main",
+          "detached": false,
+          "main": true
+        }
+      ],
+      "changes": {
+        "mergeChanges": [],
+        "indexChanges": [],
+        "workingTree": [
+          {}
+        ],
+        "untrackedChanges": []
+      },
+      "_onDidChangeSignal": {
+        "_observers": {},
+        "debugName": "Observable Signal From Event"
+      },
+      "headBranchNameObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "headCommitHashObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "upstreamBranchNameObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "upstreamRemoteObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "isRebasingObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "_checkIsIgnored": {
+        "_waitingTimeMs": 1000,
+        "_queue": [],
+        "_timeout": null
+      },
+      "_isIgnored": {
+        "_map": {},
+        "_map2": {}
+      }
+    }
+  ],
+  "notebookDocumentFilePaths": [],
+  "textDocumentFilePaths": []
+}

@@ -133,7 +133,15 @@ export function parseAgentHostUsageLog(text: string): AgentHostUsageRecord[] {
   });
 }
 
+function agentHostSessionIdentity(value: string): string {
+  const knownPrefix = /^(?:agent-host-copilotcli|ahp-chat|ahp-session)(?::\/|__)/i;
+  const withoutPrefix = value.replace(knownPrefix, '');
+  return withoutPrefix || value;
+}
+
 export function filterAgentHostUsageForWorkspace(records: readonly AgentHostUsageRecord[], workspaceTurnIds: ReadonlySet<string>, sessionId: string, workspaceChatIds: ReadonlySet<string>): AgentHostUsageRecord[] {
-  return records.filter(record => workspaceChatIds.has(sessionId)
+  const sessionIdentity = agentHostSessionIdentity(sessionId);
+  const workspaceSessionIdentities = new Set([...workspaceChatIds].map(agentHostSessionIdentity));
+  return records.filter(record => workspaceSessionIdentities.has(sessionIdentity)
     || Boolean(record.turnId && workspaceTurnIds.has(record.turnId)));
 }
